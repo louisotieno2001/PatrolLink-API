@@ -13,8 +13,13 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const multer = require('multer');
 const https = require('https');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 
 const app = express();
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for now as it might break EJS/inline scripts if not configured carefully
+}));
 const PORT = process.env.APIPORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'OhubxhJ46DEJWeRdmLERzrDgPYrSsYaCdZ0eE2ITw9pTZDIVODHXicYiZka';
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -23,6 +28,7 @@ const DEFAULT_ALLOWED_ORIGINS = [
   'exp://localhost:19000',
   'http://localhost:3000',
   'http://localhost:8057',
+  'http://localhost:5000',
 ];
 const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
   ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
@@ -42,6 +48,29 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
+// Rate Limiters
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 login requests per 15 minutes
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many login attempts from this IP, please try again after 15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // Limit each IP to 5 registration requests per hour
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many registration attempts from this IP, please try again after an hour'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
@@ -59,12 +88,14 @@ app.use(cors({
   credentials: true,
 }));
 
+const SESSION_SECRET = process.env.SESSION_SECRET || 'sqT_d_qxWqHyXS6Yk7Me8APygz3EjFE8';
+
 app.use(session({
   store: new pgSession({
     pool: pool,
     tableName: 'session',
   }),
-  secret: 'sqT_d_qxWqHyXS6Yk7Me8APygz3EjFE8',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -93,6 +124,27 @@ async function query(path, config) {
         ...config
     });
     return res;
+}
+
+/**
+ * Sanitize limit parameter for Directus API
+ */
+function sanitizeLimit(limit, defaultValue = 10, maxLimit = 100) {
+  const parsed = parseInt(limit, 10);
+  if (isNaN(parsed) || parsed <= 0) return defaultValue;
+  return Math.min(parsed, maxLimit);
+}
+
+/**
+ * Sanitize sort parameter for Directus API
+ * Allows only alphanumeric characters, underscores, and a leading minus sign
+ */
+function sanitizeSort(sort, defaultValue = '-start_time') {
+  if (!sort || typeof sort !== 'string') return defaultValue;
+  // Regex: optional leading minus, then word characters
+  const safeSortPattern = /^-?\w+$/;
+  if (!safeSortPattern.test(sort)) return defaultValue;
+  return sort;
 }
 
 /**
@@ -726,13 +778,26 @@ const runPeriodicPushScan = async () => {
 // ============================================
 
 /**
- * Check session middleware (for session-based auth)
+ * Check session middleware (for session-based auth - API)
  */
 const checkSession = (req, res, next) => {
   if (req.session && req.session.user) {
     next();
   } else {
     res.status(401).json({ error: 'Unauthorized', message: 'Please login to access this resource' });
+  }
+};
+
+/**
+ * Require Auth middleware (for web views)
+ */
+const requireAuth = (req, res, next) => {
+  if (req.session && req.session.user) {
+    next();
+  } else {
+    // Store the URL the user was trying to reach
+    req.session.returnTo = req.originalUrl;
+    res.redirect('/login');
   }
 };
 
@@ -776,7 +841,7 @@ async function signUp(userData) {
   return response.data;
 }
 
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', registerLimiter, async (req, res) => {
   try {
     const { firstName, lastName, phone, password, role, companyCode } = req.body || {};
 
@@ -955,11 +1020,9 @@ app.get('/api/locations', verifyTokenMiddleware, async (req, res) => {
  * Login with phone and password
  * Body: { phone, password }
  */
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', loginLimiter, async (req, res) => {
   try {
     const { phone, password } = req.body || {};
-
-    // console.log("Logging in with", phone ,"and", password)
 
     // Validate input
     if (!phone || !password) {
@@ -1069,14 +1132,16 @@ app.post('/api/login', async (req, res) => {
       ongoing_patrol: ongoingPatrol,
     };
 
-    // console.log(tokenPayload)
-
     // Include assignments in token for guards
     if (user.role === 'guard') {
       tokenPayload.assignments = assignments;
     }
 
     const token = generateToken(tokenPayload);
+
+    // Get the returnTo URL from session or default to /api-endpoints
+    const returnTo = req.session.returnTo || '/api-endpoints';
+    delete req.session.returnTo; // Clear it after use
 
     res.json({
       message: 'Login successful',
@@ -1094,6 +1159,7 @@ app.post('/api/login', async (req, res) => {
       token,
       patrol_status: patrolStatus,
       ongoing_patrol: ongoingPatrol,
+      returnTo,
     });
   } catch (error) {
     console.error('Login Error:', error);
@@ -1343,11 +1409,23 @@ app.get('/', (req, res) => {
   res.render('index');
 });
 
-app.get('/documentation', (req, res) => {
+app.get('/login', (req, res) => {
+  res.render('login');
+});
+
+app.get('/signup', (req, res) => {
+  res.render('signup');
+});
+
+app.get('/paywall', requireAuth, (req, res) => {
+  res.render('paywall');
+});
+
+app.get('/documentation', requireAuth, (req, res) => {
   res.render('documentation');
 });
 
-app.get('/api-endpoints', (req, res) => {
+app.get('/api-endpoints', requireAuth, (req, res) => {
   res.render('api_endpoints');
 });
 
@@ -1394,7 +1472,7 @@ app.get('/api/organizations/invite-codes', verifyTokenMiddleware, async (req, re
 // ============================================
 // VALIDATE INVITE CODE (PUBLIC)
 // ============================================
-app.post('/api/organizations/validate-invite-code', async (req, res) => {
+app.post('/api/organizations/validate-invite-code', loginLimiter, async (req, res) => {
   try {
     const { inviteCode } = req.body || {};
 
@@ -1442,8 +1520,8 @@ app.post('/api/organizations/validate-invite-code', async (req, res) => {
 app.get('/api/patrols', verifyTokenMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const limit = req.query.limit || 10;
-    const sort = req.query.sort || '-start_time';
+    const limit = sanitizeLimit(req.query.limit, 10);
+    const sort = sanitizeSort(req.query.sort, '-start_time');
 
     // Fetch patrols for this guard from Directus
     const response = await query(`/items/patrols?filter[user_id][_eq]=${userId}&sort=${sort}&limit=${limit}`);
@@ -1723,8 +1801,8 @@ app.delete('/api/admin/guards/:id', verifyTokenMiddleware, async (req, res) => {
 app.get('/api/admin/patrols', verifyTokenMiddleware, async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
-    const limit = req.query.limit || 50;
-    const sort = req.query.sort || '-start_time';
+    const limit = sanitizeLimit(req.query.limit, 50);
+    const sort = sanitizeSort(req.query.sort, '-start_time');
 
     // First get all guards for this organization
     const guardsResponse = await query(`/items/users?filter[role][_eq]=guard&filter[invite_code][_eq]=${inviteCode}&fields=id`);
@@ -2025,8 +2103,8 @@ app.delete('/api/admin/locations/:id', verifyTokenMiddleware, async (req, res) =
 const getAdminLogsHandler = async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
-    const limit = req.query.limit || 50;
-    const sort = req.query.sort || '-timestamp';
+    const limit = sanitizeLimit(req.query.limit, 50);
+    const sort = sanitizeSort(req.query.sort, '-timestamp');
 
     // First get all guards for this organization
     const guardsResponse = await query(`/items/users?filter[role][_eq]=guard&filter[invite_code][_eq]=${inviteCode}&fields=id`);
@@ -2122,7 +2200,7 @@ app.get('/api/admin/logs', verifyTokenMiddleware, getAdminLogsHandler);
 app.get('/api/admin/notifications', verifyTokenMiddleware, async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
-    const limit = req.query.limit || 100;
+    const limit = sanitizeLimit(req.query.limit, 100);
 
     if (!inviteCode) {
       return res.status(400).json({
@@ -2469,8 +2547,8 @@ app.patch('/api/patrols/:id/location', verifyTokenMiddleware, async (req, res) =
 app.get('/api/logs', verifyTokenMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const limit = req.query.limit || 50;
-    const sort = req.query.sort || '-timestamp';
+    const limit = sanitizeLimit(req.query.limit, 50);
+    const sort = sanitizeSort(req.query.sort, '-timestamp');
 
     // Fetch logs for this guard from Directus
     const response = await query(`/items/logs?filter[user_id][_eq]=${userId}&sort=${sort}&limit=${limit}`);
