@@ -31,6 +31,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_HOST: postgres  # Use the service name as the host
       DB_PORT: 5432   
+      DB_SSL: "false"
       EXTENSIONS_AUTO_RELOAD: true
     networks:
       omniwatch:
