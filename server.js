@@ -39,6 +39,16 @@ const url = process.env.DIRECTUS_URL;
 const accessToken = process.env.DIRECTUS_TOKEN;
 
 // PostgreSQL connection pool
+console.log('Database Connection Settings:', {
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_DATABASE || process.env.DB_NAME,
+  port: process.env.DB_PORT,
+  node_env: process.env.NODE_ENV,
+  db_ssl: process.env.DB_SSL,
+  pg_ssl_mode: process.env.PGSSLMODE
+});
+
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -46,7 +56,7 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
   max: parseInt(process.env.DB_POOL_MAX, 10) || 50,
-  ...(process.env.DB_SSL === 'true' ? { ssl: { rejectUnauthorized: false } } : {}),
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 
 // Rate Limiters
