@@ -194,6 +194,30 @@ collections:
       versioning: false
     schema:
       name: push_dispatches
+  - collection: subscription_payments
+    meta:
+      accountability: all
+      archive_app_filter: true
+      archive_field: null
+      archive_value: null
+      collapse: open
+      collection: subscription_payments
+      color: '#27ae60'
+      display_template: null
+      group: null
+      hidden: false
+      icon: payments
+      item_duplication_fields: null
+      note: Track monthly subscription payments per organization
+      preview_url: null
+      singleton: false
+      sort: null
+      sort_field: null
+      translations: null
+      unarchive_value: null
+      versioning: false
+    schema:
+      name: subscription_payments
   - collection: users
     meta:
       accountability: all
@@ -772,30 +796,27 @@ fields:
       foreign_key_table: null
       foreign_key_column: null
   - collection: gps_points
-    field: id
-    type: uuid
-    meta: null
-    schema:
-      name: id
-      table: gps_points
-      data_type: uuid
-      default_value: gen_random_uuid()
-      max_length: null
-      numeric_precision: null
-      numeric_scale: null
-      is_nullable: false
-      is_unique: true
-      is_indexed: false
-      is_primary_key: true
-      is_generated: false
-      generation_expression: null
-      has_auto_increment: false
-      foreign_key_table: null
-      foreign_key_column: null
-  - collection: gps_points
     field: patrol_id
     type: string
-    meta: null
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: patrol_id
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: null
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
     schema:
       name: patrol_id
       table: gps_points
@@ -816,7 +837,25 @@ fields:
   - collection: gps_points
     field: latitude
     type: float
-    meta: null
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: latitude
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: null
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
     schema:
       name: latitude
       table: gps_points
@@ -837,7 +876,25 @@ fields:
   - collection: gps_points
     field: longitude
     type: float
-    meta: null
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: longitude
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: null
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
     schema:
       name: longitude
       table: gps_points
@@ -858,7 +915,25 @@ fields:
   - collection: gps_points
     field: timestamp
     type: timestamp
-    meta: null
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: timestamp
+      group: null
+      hidden: false
+      interface: datetime
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: null
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
     schema:
       name: timestamp
       table: gps_points
@@ -877,72 +952,27 @@ fields:
       foreign_key_table: null
       foreign_key_column: null
   - collection: gps_points
-    field: created_at
-    type: timestamp
-    meta: null
-    schema:
-      name: created_at
-      table: gps_points
-      data_type: timestamp with time zone
-      default_value: CURRENT_TIMESTAMP
-      max_length: null
-      numeric_precision: null
-      numeric_scale: null
-      is_nullable: true
-      is_unique: false
-      is_indexed: false
-      is_primary_key: false
-      is_generated: false
-      generation_expression: null
-      has_auto_increment: false
-      foreign_key_table: null
-      foreign_key_column: null
-  - collection: gps_points
-    field: user_id
-    type: string
-    meta: null
-    schema:
-      name: user_id
-      table: gps_points
-      data_type: character varying
-      default_value: null
-      max_length: 255
-      numeric_precision: null
-      numeric_scale: null
-      is_nullable: true
-      is_unique: false
-      is_indexed: true
-      is_primary_key: false
-      is_generated: false
-      generation_expression: null
-      has_auto_increment: false
-      foreign_key_table: null
-      foreign_key_column: null
-  - collection: gps_points
-    field: organization_id
-    type: string
-    meta: null
-    schema:
-      name: organization_id
-      table: gps_points
-      data_type: character varying
-      default_value: null
-      max_length: 255
-      numeric_precision: null
-      numeric_scale: null
-      is_nullable: true
-      is_unique: false
-      is_indexed: true
-      is_primary_key: false
-      is_generated: false
-      generation_expression: null
-      has_auto_increment: false
-      foreign_key_table: null
-      foreign_key_column: null
-  - collection: gps_points
     field: accuracy
     type: float
-    meta: null
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: accuracy
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: null
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
     schema:
       name: accuracy
       table: gps_points
@@ -963,7 +993,25 @@ fields:
   - collection: gps_points
     field: bearing
     type: float
-    meta: null
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: bearing
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: null
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
     schema:
       name: bearing
       table: gps_points
@@ -984,7 +1032,25 @@ fields:
   - collection: gps_points
     field: speed
     type: float
-    meta: null
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: speed
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: null
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
     schema:
       name: speed
       table: gps_points
@@ -1005,7 +1071,25 @@ fields:
   - collection: gps_points
     field: batch_id
     type: uuid
-    meta: null
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: batch_id
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: null
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
     schema:
       name: batch_id
       table: gps_points
@@ -1017,6 +1101,164 @@ fields:
       is_nullable: true
       is_unique: false
       is_indexed: true
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: gps_points
+    field: user_id
+    type: string
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: user_id
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: null
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: user_id
+      table: gps_points
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: true
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: gps_points
+    field: organization_id
+    type: string
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: organization_id
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: null
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: organization_id
+      table: gps_points
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: true
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: gps_points
+    field: id
+    type: uuid
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: id
+      group: null
+      hidden: true
+      interface: input
+      note: null
+      options: null
+      readonly: true
+      required: false
+      sort: null
+      special:
+        - uuid
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: id
+      table: gps_points
+      data_type: uuid
+      default_value: gen_random_uuid()
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: false
+      is_unique: true
+      is_indexed: false
+      is_primary_key: true
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: gps_points
+    field: created_at
+    type: timestamp
+    meta:
+      collection: gps_points
+      conditions: null
+      display: null
+      display_options: null
+      field: created_at
+      group: null
+      hidden: true
+      interface: datetime
+      note: null
+      options: null
+      readonly: true
+      required: false
+      sort: null
+      special:
+        - date-created
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: created_at
+      table: gps_points
+      data_type: timestamp with time zone
+      default_value: CURRENT_TIMESTAMP
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
       is_primary_key: false
       is_generated: false
       generation_expression: null
@@ -1878,6 +2120,305 @@ fields:
       has_auto_increment: false
       foreign_key_table: null
       foreign_key_column: null
+  - collection: organizations
+    field: subscription_tier
+    type: string
+    meta:
+      collection: organizations
+      conditions: null
+      display: null
+      display_options: null
+      field: subscription_tier
+      group: null
+      hidden: false
+      interface: select-dropdown
+      note: Subscription tier determines feature access and monthly rate
+      options:
+        choices:
+          - text: Free
+            value: free
+          - text: Basic
+            value: basic
+          - text: Premium
+            value: premium
+          - text: Enterprise
+            value: enterprise
+        icon: workspace_premium
+      readonly: false
+      required: false
+      sort: 8
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: subscription_tier
+      table: organizations
+      data_type: character varying
+      default_value: free
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: organizations
+    field: subscription_status
+    type: string
+    meta:
+      collection: organizations
+      conditions: null
+      display: null
+      display_options: null
+      field: subscription_status
+      group: null
+      hidden: false
+      interface: select-dropdown
+      note: Current subscription payment status
+      options:
+        choices:
+          - icon: check_circle
+            text: Active
+            text_color: '#2ecc71'
+            value: active
+          - icon: error
+            text: Past Due
+            text_color: '#e74c3c'
+            value: past_due
+          - icon: cancel
+            text: Cancelled
+            text_color: '#95a5a6'
+            value: cancelled
+          - icon: star
+            text: Trialing
+            text_color: '#3498db'
+            value: trialing
+        icon: toggle_off
+      readonly: false
+      required: false
+      sort: 9
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: subscription_status
+      table: organizations
+      data_type: character varying
+      default_value: active
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: organizations
+    field: monthly_rate
+    type: decimal
+    meta:
+      collection: organizations
+      conditions: null
+      display: null
+      display_options: null
+      field: monthly_rate
+      group: null
+      hidden: false
+      interface: input
+      note: Monthly subscription fee
+      options:
+        min: 0
+        prefix: $
+        step: 0.01
+      readonly: false
+      required: false
+      sort: 10
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: monthly_rate
+      table: organizations
+      data_type: numeric
+      default_value: 0
+      max_length: null
+      numeric_precision: 10
+      numeric_scale: 5
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: organizations
+    field: billing_cycle_start
+    type: date
+    meta:
+      collection: organizations
+      conditions: null
+      display: null
+      display_options: null
+      field: billing_cycle_start
+      group: null
+      hidden: false
+      interface: date
+      note: Start of the current billing cycle
+      options: null
+      readonly: false
+      required: false
+      sort: 11
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: billing_cycle_start
+      table: organizations
+      data_type: date
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: organizations
+    field: billing_email
+    type: string
+    meta:
+      collection: organizations
+      conditions: null
+      display: null
+      display_options: null
+      field: billing_email
+      group: null
+      hidden: false
+      interface: input
+      note: Email address for billing invoices and notifications
+      options:
+        icon: email
+      readonly: false
+      required: false
+      sort: 12
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: billing_email
+      table: organizations
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: organizations
+    field: max_guards
+    type: integer
+    meta:
+      collection: organizations
+      conditions: null
+      display: null
+      display_options: null
+      field: max_guards
+      group: null
+      hidden: false
+      interface: input
+      note: Maximum number of guards allowed (0 = unlimited)
+      options:
+        icon: group
+      readonly: false
+      required: false
+      sort: 13
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: max_guards
+      table: organizations
+      data_type: integer
+      default_value: 0
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: organizations
+    field: payments
+    type: alias
+    meta:
+      collection: organizations
+      conditions: null
+      display: null
+      display_options: null
+      field: payments
+      group: null
+      hidden: false
+      interface: list-o2m
+      note: Subscription payment history
+      options:
+        enableCreate: true
+        enableSelect: false
+        fields:
+          - period_start
+          - period_end
+          - amount_due
+          - amount_paid
+          - status
+          - due_date
+      readonly: false
+      required: false
+      sort: 14
+      special:
+        - o2m
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
   - collection: patrols
     field: id
     type: uuid
@@ -2389,6 +2930,511 @@ fields:
       has_auto_increment: false
       foreign_key_table: null
       foreign_key_column: null
+  - collection: subscription_payments
+    field: id
+    type: uuid
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: id
+      group: null
+      hidden: true
+      interface: input
+      note: null
+      options: null
+      readonly: true
+      required: false
+      sort: 1
+      special:
+        - uuid
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: id
+      table: subscription_payments
+      data_type: uuid
+      default_value: gen_random_uuid()
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: false
+      is_unique: true
+      is_indexed: false
+      is_primary_key: true
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: subscription_payments
+    field: organization
+    type: uuid
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: organization
+      group: null
+      hidden: false
+      interface: select-dropdown-m2o
+      note: The organization this payment belongs to
+      options: null
+      readonly: false
+      required: false
+      sort: 2
+      special:
+        - m2o
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: organization
+      table: subscription_payments
+      data_type: uuid
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: false
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: organizations
+      foreign_key_column: id
+  - collection: subscription_payments
+    field: period_start
+    type: date
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: period_start
+      group: null
+      hidden: false
+      interface: date
+      note: Billing period start date
+      options: null
+      readonly: false
+      required: false
+      sort: 3
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: period_start
+      table: subscription_payments
+      data_type: date
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: false
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: subscription_payments
+    field: period_end
+    type: date
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: period_end
+      group: null
+      hidden: false
+      interface: date
+      note: Billing period end date
+      options: null
+      readonly: false
+      required: false
+      sort: 4
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: period_end
+      table: subscription_payments
+      data_type: date
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: false
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: subscription_payments
+    field: amount_due
+    type: decimal
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: amount_due
+      group: null
+      hidden: false
+      interface: input
+      note: Amount due for this period
+      options:
+        prefix: $
+        step: 0.01
+      readonly: false
+      required: false
+      sort: 5
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: amount_due
+      table: subscription_payments
+      data_type: numeric
+      default_value: null
+      max_length: null
+      numeric_precision: 10
+      numeric_scale: 5
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: subscription_payments
+    field: amount_paid
+    type: decimal
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: amount_paid
+      group: null
+      hidden: false
+      interface: input
+      note: Amount actually paid (0 if unpaid)
+      options:
+        prefix: $
+        step: 0.01
+      readonly: false
+      required: false
+      sort: 6
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: amount_paid
+      table: subscription_payments
+      data_type: numeric
+      default_value: 0
+      max_length: null
+      numeric_precision: 10
+      numeric_scale: 5
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: subscription_payments
+    field: status
+    type: string
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: status
+      group: null
+      hidden: false
+      interface: select-dropdown
+      note: Payment status for this period
+      options:
+        choices:
+          - icon: cancel
+            text: Unpaid
+            text_color: '#e74c3c'
+            value: unpaid
+          - icon: check_circle
+            text: Paid
+            text_color: '#2ecc71'
+            value: paid
+          - icon: warning
+            text: Overdue
+            text_color: '#e67e22'
+            value: overdue
+          - icon: undo
+            text: Refunded
+            text_color: '#95a5a6'
+            value: refunded
+      readonly: false
+      required: false
+      sort: 7
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: status
+      table: subscription_payments
+      data_type: character varying
+      default_value: unpaid
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: subscription_payments
+    field: due_date
+    type: date
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: due_date
+      group: null
+      hidden: false
+      interface: date
+      note: Date by which payment must be received
+      options: null
+      readonly: false
+      required: false
+      sort: 8
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: due_date
+      table: subscription_payments
+      data_type: date
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: subscription_payments
+    field: paid_at
+    type: timestamp
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: paid_at
+      group: null
+      hidden: false
+      interface: datetime
+      note: When the payment was completed
+      options: null
+      readonly: false
+      required: false
+      sort: 9
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: paid_at
+      table: subscription_payments
+      data_type: timestamp with time zone
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: subscription_payments
+    field: payment_method
+    type: string
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: payment_method
+      group: null
+      hidden: false
+      interface: select-dropdown
+      note: Payment method used
+      options:
+        choices:
+          - icon: credit_card
+            text: Credit Card
+            value: credit_card
+          - icon: account_balance
+            text: Bank Transfer
+            value: bank_transfer
+          - icon: payments
+            text: Cash
+            value: cash
+          - icon: receipt
+            text: Check
+            value: check
+      readonly: false
+      required: false
+      sort: 10
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: payment_method
+      table: subscription_payments
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: subscription_payments
+    field: notes
+    type: text
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: notes
+      group: null
+      hidden: false
+      interface: input-multiline
+      note: Additional notes about this payment
+      options: null
+      readonly: false
+      required: false
+      sort: 11
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: notes
+      table: subscription_payments
+      data_type: text
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: subscription_payments
+    field: created_at
+    type: timestamp
+    meta:
+      collection: subscription_payments
+      conditions: null
+      display: null
+      display_options: null
+      field: created_at
+      group: null
+      hidden: true
+      interface: datetime
+      note: null
+      options: null
+      readonly: true
+      required: false
+      sort: 12
+      special:
+        - date-created
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: created_at
+      table: subscription_payments
+      data_type: timestamp with time zone
+      default_value: CURRENT_TIMESTAMP
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
   - collection: users
     field: id
     type: uuid
@@ -2788,3 +3834,24 @@ relations:
       constraint_name: organizations_user_created_foreign
       on_update: NO ACTION
       on_delete: NO ACTION
+  - collection: subscription_payments
+    field: organization
+    related_collection: organizations
+    meta:
+      junction_field: null
+      many_collection: subscription_payments
+      many_field: organization
+      one_allowed_collections: null
+      one_collection: organizations
+      one_collection_field: null
+      one_deselect_action: nullify
+      one_field: payments
+      sort_field: null
+    schema:
+      table: subscription_payments
+      column: organization
+      foreign_key_table: organizations
+      foreign_key_column: id
+      constraint_name: subscription_payments_organization_foreign
+      on_update: NO ACTION
+      on_delete: CASCADE

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PatrolLink Admin</title>
+<link rel="icon" href="/images/logo.png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0b1120;--surface:#111827;--card:#1a2332;--border:#1e293b;--text:#e2e8f0;--muted:#64748b;--accent:#3b82f6;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--purple:#8b5cf6;--teal:#14b8a6}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-brand{padding:18px 16px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-brand svg{width:24px;height:24px;flex-shrink:0}
+.sidebar-brand span{font-size:16px;font-weight:700}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px;font-weight:500;transition:.12s;cursor:pointer;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--card);color:var(--text)}
+.nav-item.active{background:var(--accent);color:#fff}
+.nav-item svg{width:18px;height:18px;flex-shrink:0}
+.nav-item .badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;padding:1px 7px;border-radius:8px}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;max-width:calc(100vw - 220px)}
+
+/* Org dropdown bar */
+.org-bar{display:flex;align-items:center;gap:14px;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
+.org-bar-label{font-size:12px;color:var(--muted);white-space:nowrap}
+.org-select-wrap{position:relative;flex:1;max-width:400px}
+.org-select-wrap select{width:100%;padding:9px 32px 9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px;outline:none;appearance:none;cursor:pointer}
+.org-select-wrap select:focus{border-color:var(--accent)}
+.org-select-wrap svg{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--muted);pointer-events:none}
+.org-bar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.org-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600}
+.org-badge.sub{background:rgba(59,130,246,.12);color:var(--accent)}
+.org-badge.status{background:rgba(34,197,94,.12);color:var(--green)}
+.org-badge.status.past_due{background:rgba(239,68,68,.12);color:var(--red)}
+.last-updated{font-size:11px;color:var(--muted)}
+.refresh-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;border-radius:6px;display:flex}
+.refresh-btn:hover{background:rgba(255,255,255,.06);color:var(--text)}
+
+/* Content */
+.content{padding:20px 24px;overflow-y:auto;flex:1}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* Org placeholder */
+.org-prompt{text-align:center;padding:60px 20px;color:var(--muted)}
+.org-prompt svg{width:56px;height:56px;opacity:.2;margin-bottom:12px}
+.org-prompt h2{font-size:18px;color:var(--text);margin-bottom:6px}
+.org-prompt p{font-size:13px}
+
+/* Metrics */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:24px}
+.metric{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px;transition:.2s}
+.metric:hover{transform:translateY(-2px);border-color:var(--accent)}
+.metric-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.metric-icon svg{width:22px;height:22px}
+.metric-body{display:flex;flex-direction:column;gap:1px}
+.metric-value{font-size:20px;font-weight:800;line-height:1.2}
+.metric-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+
+/* Section */
+.section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:18px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:14px;font-weight:600}
+.section-header svg{width:18px;height:18px;margin-right:6px;flex-shrink:0}
+
+/* Tier bars */
+.tier-row{display:flex;align-items:center;gap:12px;padding:7px 8px;border-radius:6px}
+.tier-row:hover{background:rgba(255,255,255,.03)}
+.tier-label{display:flex;align-items:center;gap:8px;min-width:110px;font-size:13px}
+.tier-bar{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.tier-fill{height:100%;border-radius:4px;transition:width .5s}
+.tier-count{min-width:26px;text-align:right;font-size:13px;font-weight:600;color:var(--muted)}
+
+/* Table */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.04)}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge-tag{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:600;text-transform:uppercase}
+.badge-active{background:rgba(34,197,94,.15);color:var(--green)}
+.badge-inactive{background:rgba(100,116,139,.15);color:var(--muted)}
+.badge-onpatrol{background:rgba(59,130,246,.15);color:var(--accent)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:.12s;line-height:1;text-decoration:none}
+.btn svg{width:13px;height:13px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-success{background:var(--green);color:#fff}
+.btn-success:hover{background:#16a34a}
+.btn-warning{background:var(--amber);color:#000}
+.btn-warning:hover{background:#d97706}
+.btn-ghost{background:rgba(255,255,255,.06);color:var(--text)}
+.btn-ghost:hover{background:rgba(255,255,255,.1)}
+.btn-sm{padding:4px 9px;font-size:10px}
+.btn-sm svg{width:11px;height:11px}
+
+/* Payment items */
+.pay-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;margin-bottom:4px;border-left:3px solid transparent;background:rgba(255,255,255,.02)}
+.pay-item.overdue{border-left-color:var(--red);background:rgba(239,68,68,.06)}
+.pay-item.unpaid{border-left-color:var(--amber)}
+.pay-item.paid{border-left-color:var(--green)}
+.pay-left{display:flex;align-items:center;gap:10px}
+.pay-info{display:flex;flex-direction:column;gap:1px}
+.pay-org{font-size:13px;font-weight:600}
+.pay-period{font-size:10px;color:var(--muted)}
+.pay-right{display:flex;align-items:center;gap:10px}
+.pay-amt{font-size:13px;font-weight:700}
+.pay-badge{font-size:9px;font-weight:600;text-transform:uppercase;padding:2px 7px;border-radius:4px}
+.pay-badge.overdue{background:rgba(239,68,68,.15);color:var(--red)}
+.pay-badge.unpaid{background:rgba(245,158,11,.15);color:var(--amber)}
+.pay-badge.paid{background:rgba(34,197,94,.15);color:var(--green)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100}
+.modal-overlay.active{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;width:460px;max-width:92vw}
+.modal h2{font-size:16px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.modal-field{margin-bottom:12px}
+.modal-field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px}
+.modal-field select,.modal-field input{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:12px;outline:none}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* Toast */
+.toast-container{position:fixed;top:16px;right:16px;z-index:999;display:flex;flex-direction:column;gap:6px}
+.toast{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;color:#fff;transform:translateX(120%);transition:transform .25s;display:flex;align-items:center;gap:8px}
+.toast.show{transform:translateX(0)}
+.toast-success{background:#16a34a}
+.toast-error{background:#dc2626}
+
+/* Loading */
+.shimmer{background:linear-gradient(90deg,var(--card) 25%,rgba(255,255,255,.04) 50%,var(--card) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:6px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.empty{text-align:center;padding:32px;color:var(--muted);font-size:13px}
+.empty svg{width:36px;height:36px;opacity:.3;margin-bottom:8px}
+
+/* Phone toggle */
+.phone-masked{color:var(--muted);cursor:pointer}
+.phone-visible{color:var(--text)}
+.toggle-phone{background:none;border:none;color:var(--accent);cursor:pointer;font-size:10px;padding:2px 6px;border-radius:4px}
+.toggle-phone:hover{background:rgba(59,130,246,.1)}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      <span>PatrolLink</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-tab="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-item" data-tab="supervisors">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Supervisors <span class="badge" id="supervisorBadge">0</span>
+      </button>
+      <button class="nav-item" data-tab="guards">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Guards <span class="badge" id="guardBadge">0</span>
+      </button>
+      <button class="nav-item" data-tab="payments">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        Payments <span class="badge" id="paymentBadge">0</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span><%= user?.first_name || 'Admin' %></span>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Organization Selector Bar -->
+    <div class="org-bar">
+      <span class="org-bar-label">Organization</span>
+      <div class="org-select-wrap">
+        <select id="orgSelect" onchange="onOrgChange()">
+          <option value="">— All Organizations —</option>
+        </select>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div id="orgMeta" style="display:none;font-size:11px;color:var(--muted);display:flex;gap:8px;margin-left:12px"></div>
+      <div class="org-bar-right">
+        <span class="last-updated" id="lastUpdated"></span>
+        <button class="refresh-btn" onclick="refreshActiveTab()" title="Refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <!-- Dashboard Tab -->
+      <div class="tab-pane active" id="tab-dashboard"></div>
+
+      <!-- Supervisors Tab -->
+      <div class="tab-pane" id="tab-supervisors">
+        <div class="section">
+          <div class="section-header">
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Supervisors</span>
+            <span id="supervisorCount" style="font-size:12px;color:var(--muted)"></span>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Status</th><th>Last Access</th></tr></thead><tbody id="supervisorTableBody"><tr><td colspan="5" class="empty">Select an organization above</td></tr></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- Guards Tab -->
+      <div class="tab-pane" id="tab-guards">
+        <div class="section">
+          <div class="section-header">
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Guards</span>
+            <span id="guardCount" style="font-size:12px;color:var(--muted)"></span>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Location</th><th>Areas</th><th>Hours</th><th>Status</th><th>Last Access</th></tr></thead><tbody id="guardTableBody"><tr><td colspan="8" class="empty">Select an organization above</td></tr></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- Payments Tab -->
+      <div class="tab-pane" id="tab-payments">
+        <div class="section">
+          <div class="section-header">
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Payments</span>
+            <button class="btn btn-warning btn-sm" onclick="generateAllMissing()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Generate Missing
+            </button>
+          </div>
+          <div id="paymentList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mark Paid Modal -->
+<div class="modal-overlay" id="markPaidModal">
+  <div class="modal">
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Mark Payment as Paid</h2>
+    <div class="modal-field"><label>Amount Paid</label><input type="number" id="paidAmount" step="0.01" min="0"></div>
+    <div class="modal-field"><label>Payment Method</label>
+      <select id="paidMethod"><option value="credit_card">Credit Card</option><option value="bank_transfer">Bank Transfer</option><option value="cash">Cash</option><option value="check">Check</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-success" id="confirmPaidBtn" onclick="confirmMarkPaid()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const TOKEN = '<%= user?.token || "" %>';
+const API = '/api/admin/dashboard';
+let activeTab = 'dashboard';
+let pendingPaymentId = null;
+let phoneRevealed = {};
+let orgList = [];
+let selectedOrgId = '';
+
+// Tab switching
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    activeTab = btn.dataset.tab;
+    document.getElementById('tab-' + activeTab).classList.add('active');
+    loadTab(activeTab);
+  });
+});
+
+// Load org dropdown
+async function loadOrgs() {
+  try {
+    const r = await fetch(`${API}/organizations`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    const d = await r.json();
+    orgList = d.organizations || [];
+    const sel = document.getElementById('orgSelect');
+    sel.innerHTML = '<option value="">— All Organizations —</option>' +
+      orgList.map(o => `<option value="${o.id}">${escapeHtml(o.name)} (${o.invite_code || ''})</option>`).join('');
+  } catch(e) { showToast('Failed to load organizations','error'); }
+}
+
+function onOrgChange() {
+  selectedOrgId = document.getElementById('orgSelect').value;
+  const meta = document.getElementById('orgMeta');
+  if (selectedOrgId) {
+    const org = orgList.find(o => o.id === selectedOrgId);
+    if (org) {
+      meta.innerHTML = `
+        <span class="org-badge sub">${org.subscription_tier || 'free'}</span>
+        <span class="org-badge status ${org.subscription_status === 'past_due' ? 'past_due' : ''}">${org.subscription_status || 'active'}</span>
+      `;
+    }
+  } else {
+    meta.innerHTML = '';
+  }
+  loadActiveTab();
+}
+
+function loadActiveTab() { loadTab(activeTab); }
+function refreshActiveTab() { loadTab(activeTab); }
+
+function orgQuery() { return selectedOrgId ? `?org_id=${selectedOrgId}` : ''; }
+
+function loadTab(tab) {
+  switch(tab) {
+    case 'dashboard': loadDashboard(); break;
+    case 'supervisors': loadSupervisors(); break;
+    case 'guards': loadGuards(); break;
+    case 'payments': loadPayments(); break;
+  }
+}
+
+async function loadDashboard() {
+  const container = document.getElementById('tab-dashboard');
+  container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div class="shimmer" style="width:60%;height:80px;margin:0 auto"></div></div>';
+  try {
+    const r = await fetch(`${API}${orgQuery()}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    const d = await r.json();
+
+    document.getElementById('supervisorBadge').textContent = d.supervisor_count || 0;
+    document.getElementById('guardBadge').textContent = d.total_guards || 0;
+    document.getElementById('paymentBadge').textContent = d.overdue_payments || 0;
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+
+    if (selectedOrgId && d.selected_org) {
+      renderSingleOrgDashboard(d);
+    } else {
+      renderMultiOrgDashboard(d);
+    }
+  } catch(e) {
+    container.innerHTML = '<div class="org-prompt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><p>Failed to load dashboard data</p></div>';
+  }
+}
+
+function renderMultiOrgDashboard(d) {
+  const container = document.getElementById('tab-dashboard');
+  const cards = [
+    { label:'Organizations', value:d.total_organizations, icon:'org', color:'#3b82f6', bg:'rgba(59,130,246,.12)' },
+    { label:'Guards', value:d.total_guards, icon:'guard', color:'#22c55e', bg:'rgba(34,197,94,.12)' },
+    { label:'Supervisors', value:d.supervisor_count||0, icon:'super', color:'#8b5cf6', bg:'rgba(139,92,246,.12)' },
+    { label:'Active Subs', value:d.active_subscriptions, icon:'sub', color:'#14b8a6', bg:'rgba(20,184,166,.12)' },
+    { label:'MRR', value:'$'+fmt(d.mrr), icon:'mrr', color:'#f59e0b', bg:'rgba(245,158,11,.12)' },
+  ];
+  const icons = {
+    org:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+    guard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    super:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
+    sub:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    mrr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>',
+  };
+  const tiers = {free:{label:'Free',c:'#64748b'},basic:{label:'Basic',c:'#3b82f6'},premium:{label:'Premium',c:'#8b5cf6'},enterprise:{label:'Enterprise',c:'#ef4444'}};
+  const total = Object.values(d.tier_breakdown).reduce((a,b)=>a+b,0)||1;
+  container.innerHTML = `
+    <div class="metrics">${cards.map(c => `<div class="metric"><div class="metric-icon" style="background:${c.bg}"><span style="color:${c.color}">${icons[c.icon]}</span></div><div class="metric-body"><span class="metric-value" style="color:${c.color}">${c.value}</span><span class="metric-label">${c.label}</span></div></div>`).join('')}</div>
+    <div class="section">
+      <div class="section-header"><span>Subscription Tiers (All Orgs)</span></div>
+      ${Object.entries(tiers).map(([k,t])=>{const cnt=d.tier_breakdown[k]||0;return `<div class="tier-row"><span class="tier-label">${t.label}</span><div class="tier-bar"><div class="tier-fill" style="width:${Math.round(cnt/total*100)}%;background:${t.c}"></div></div><span class="tier-count">${cnt}</span></div>`;}).join('')}
+    </div>
+    <div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">Select an organization above to view its detailed data</div>`;
+}
+
+function renderSingleOrgDashboard(d) {
+  const o = d.selected_org;
+  const container = document.getElementById('tab-dashboard');
+  const cards = [
+    { label:'Guards', value:d.total_guards, icon:'guard', color:'#22c55e', bg:'rgba(34,197,94,.12)' },
+    { label:'Supervisors', value:d.supervisor_count||0, icon:'super', color:'#8b5cf6', bg:'rgba(139,92,246,.12)' },
+    { label:'Monthly Rate', value:'$'+fmt(o.monthly_rate), icon:'mrr', color:'#f59e0b', bg:'rgba(245,158,11,.12)' },
+    { label:'Max Guards', value:o.max_guards||'∞', icon:'org', color:'#3b82f6', bg:'rgba(59,130,246,.12)' },
+    { label:'Payments Due', value:d.overdue_payments, icon:'sub', color:d.overdue_payments>0?'#ef4444':'#14b8a6', bg:d.overdue_payments>0?'rgba(239,68,68,.12)':'rgba(20,184,166,.12)' },
+  ];
+  const icons = {
+    org:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+    guard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    super:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
+    sub:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    mrr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>',
+  };
+  const bal = parseFloat(d.total_outstanding || 0);
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <h2 style="font-size:20px;font-weight:700">${escapeHtml(o.name)}</h2>
+      <span class="org-badge sub">${o.subscription_tier||'free'}</span>
+      <span class="org-badge status ${o.subscription_status==='past_due'?'past_due':''}">${o.subscription_status||'active'}</span>
+      <span style="font-size:12px;color:var(--muted)">${o.invite_code||''}</span>
+    </div>
+    <div class="metrics">${cards.map(c => `<div class="metric"><div class="metric-icon" style="background:${c.bg}"><span style="color:${c.color}">${icons[c.icon]}</span></div><div class="metric-body"><span class="metric-value" style="color:${c.color}">${c.value}</span><span class="metric-label">${c.label}</span></div></div>`).join('')}</div>
+    ${bal > 0 ? `<div class="section" style="border-color:var(--red);background:rgba(239,68,68,.04)"><div class="section-header"><span style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Outstanding Balance: $${fmt(bal)}</span></div></div>` : ''}
+    <div class="section"><div class="section-header"><span>Recent Payments</span></div>
+      ${(d.recent_payments||[]).length ? d.recent_payments.slice(0,5).map(p => `
+        <div class="pay-item ${p.status}">
+          <div class="pay-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="${p.status==='paid'?'#22c55e':p.status==='overdue'?'#ef4444':'#f59e0b'}" stroke-width="2" style="width:18px;height:18px">${p.status==='paid'?'<polyline points="20 6 9 17 4 12"/>':p.status==='overdue'?'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>':'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'}</svg>
+            <div class="pay-info"><span class="pay-period">${fmtDate(p.period_start)} - ${fmtDate(p.period_end)}</span></div>
+          </div>
+          <div class="pay-right"><span class="pay-amt">$${fmt(p.amount_due)}</span><span class="pay-badge ${p.status}">${p.status}</span></div>
+        </div>`).join('') : '<div class="empty"><p>No payments yet</p></div>'}
+    </div>`;
+}
+
+async function loadSupervisors() {
+  const tbody = document.getElementById('supervisorTableBody');
+  if (!selectedOrgId) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Select an organization above</td></tr>'; return; }
+  tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading...</td></tr>';
+  try {
+    const r = await fetch(`${API}/supervisors${orgQuery()}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    const d = await r.json();
+    const sups = d.supervisors || [];
+    document.getElementById('supervisorCount').textContent = `${sups.length} total`;
+    document.getElementById('supervisorBadge').textContent = sups.length;
+    if (!sups.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No supervisors</td></tr>'; return; }
+    tbody.innerHTML = sups.map(s => `<tr>
+      <td><strong>${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}</strong></td>
+      <td><span class="phone-${phoneRevealed[s.id]?'visible':'masked'}">${phoneRevealed[s.id]?escapeHtml(s.phone_raw||''):(s.phone||'—')}</span> <button class="toggle-phone" onclick="togglePhone('${s.id}')">${phoneRevealed[s.id]?'Hide':'Show'}</button></td>
+      <td>${s.email||'—'}</td>
+      <td><span class="badge-tag ${s.status==='active'?'badge-active':'badge-inactive'}">${s.status||'inactive'}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${s.last_access ? new Date(s.last_access).toLocaleString() : 'Never'}</td>
+    </tr>`).join('');
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Failed to load</td></tr>'; }
+}
+
+async function loadGuards() {
+  const tbody = document.getElementById('guardTableBody');
+  if (!selectedOrgId) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Select an organization above</td></tr>'; return; }
+  tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading...</td></tr>';
+  try {
+    const r = await fetch(`${API}/guards${orgQuery()}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    const d = await r.json();
+    const guards = d.guards || [];
+    document.getElementById('guardCount').textContent = `${guards.length} total`;
+    document.getElementById('guardBadge').textContent = guards.length;
+    if (!guards.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No guards</td></tr>'; return; }
+    tbody.innerHTML = guards.map(g => `<tr>
+      <td><strong>${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}</strong></td>
+      <td>${g.phone||'—'}</td>
+      <td style="font-size:11px">${g.email||'—'}</td>
+      <td>${escapeHtml(g.location||'—')}</td>
+      <td style="font-size:11px">${escapeHtml(g.assigned_areas||'—')}</td>
+      <td style="font-size:11px;color:var(--muted)">${g.operating_hours||'—'}</td>
+      <td><span class="badge-tag ${g.patrol_status==='On Patrol'?'badge-onpatrol':'badge-inactive'}">${g.patrol_status||'Inactive'}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${g.last_access?new Date(g.last_access).toLocaleString():'—'}</td>
+    </tr>`).join('');
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Failed to load</td></tr>'; }
+}
+
+async function loadPayments() {
+  const container = document.getElementById('paymentList');
+  if (!selectedOrgId) { container.innerHTML = '<div class="empty">Select an organization above to view payments</div>'; return; }
+  container.innerHTML = '<div class="shimmer" style="height:36px;margin-bottom:4px"></div><div class="shimmer" style="height:36px;margin-bottom:4px"></div><div class="shimmer" style="height:36px"></div>';
+  try {
+    const r = await fetch(`${API}/payments/${selectedOrgId}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    const d = await r.json();
+    const pays = d.payments || [];
+    document.getElementById('paymentBadge').textContent = pays.filter(p=>p.status!=='paid').length;
+    if (!pays.length) { container.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><p>No payments yet</p></div>'; return; }
+    container.innerHTML = pays.map(p => {
+      const sc = p.status;
+      return `<div class="pay-item ${sc}">
+        <div class="pay-left">
+          <svg viewBox="0 0 24 24" fill="none" stroke="${sc==='paid'?'#22c55e':sc==='overdue'?'#ef4444':'#f59e0b'}" stroke-width="2" style="width:18px;height:18px">${sc==='paid'?'<polyline points="20 6 9 17 4 12"/>':sc==='overdue'?'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>':'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'}</svg>
+          <div class="pay-info"><span class="pay-org">${fmtDate(p.period_start)} - ${fmtDate(p.period_end)}</span><span class="pay-period">Due: ${fmtDate(p.due_date)}</span></div>
+        </div>
+        <div class="pay-right">
+          <span class="pay-amt">$${fmt(p.amount_due)}</span>
+          <span class="pay-badge ${sc}">${p.status}</span>
+          ${sc !== 'paid' ? `<button class="btn btn-success btn-sm" onclick="openMarkPaid('${p.id}',${p.amount_due||0})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Pay</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { container.innerHTML = '<div class="empty">Failed to load</div>'; }
+}
+
+function togglePhone(id) { phoneRevealed[id]=!phoneRevealed[id]; loadSupervisors(); }
+function openMarkPaid(id,amt) { pendingPaymentId=id; document.getElementById('paidAmount').value=amt||0; document.getElementById('markPaidModal').classList.add('active'); }
+function closeModal() { document.getElementById('markPaidModal').classList.remove('active'); pendingPaymentId=null; }
+
+async function confirmMarkPaid() {
+  if (!pendingPaymentId) return;
+  const btn = document.getElementById('confirmPaidBtn'); btn.disabled = true; btn.textContent = 'Processing...';
+  try {
+    const amt = parseFloat(document.getElementById('paidAmount').value)||0;
+    const method = document.getElementById('paidMethod').value;
+    const r = await fetch(`${API}/payments/${pendingPaymentId}/mark-paid`, { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${TOKEN}`}, body: JSON.stringify({amount_paid:amt, payment_method:method}) });
+    if (!r.ok) throw new Error('Failed');
+    showToast('Payment marked as paid!','success'); closeModal(); loadPayments();
+  } catch(e) { showToast(e.message,'error'); }
+  btn.disabled=false; btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Confirm';
+}
+
+async function generateAllMissing() {
+  const btn = event?.target?.closest?.('button'); if(btn){btn.disabled=true;btn.textContent='Generating...'}
+  try {
+    const r = await fetch(`${API}/generate-all-payments`, { method:'POST', headers:{Authorization:`Bearer ${TOKEN}`} });
+    if(!r.ok) throw new Error('Failed');
+    const d = await r.json(); showToast(d.message,'success');
+    if (selectedOrgId) loadPayments(); else loadDashboard();
+  } catch(e) { showToast(e.message,'error'); }
+  if(btn){btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Generate Missing'}
+}
+
+function fmt(n) { return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtDate(d) { if(!d) return 'N/A'; return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function escapeHtml(s) { if(!s) return '—'; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showToast(msg,type) {
+  const c=document.getElementById('toastContainer');
+  const t=document.createElement('div'); t.className=`toast toast-${type}`;
+  t.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">${type==='success'?'<polyline points="20 6 9 17 4 12"/>':'<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'}</svg>${msg}`;
+  c.appendChild(t); requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300)},3000);
+}
+
+document.getElementById('markPaidModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal()});
+
+// Init
+loadOrgs().then(() => loadDashboard());
+</script>
+</body>
+</html>

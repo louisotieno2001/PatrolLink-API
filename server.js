@@ -42,10 +42,11 @@ const accessToken = process.env.DIRECTUS_TOKEN;
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
+  database: process.env.DB_DATABASE || process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
-  ssl: { rejectUnauthorized: false },
+  max: parseInt(process.env.DB_POOL_MAX, 10) || 50,
+  ...(process.env.NODE_ENV === 'production' ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 // Rate Limiters
@@ -790,12 +791,15 @@ const checkSession = (req, res, next) => {
 
 /**
  * Require Auth middleware (for web views)
+ * Denies access to non-admin users
  */
 const requireAuth = (req, res, next) => {
   if (req.session && req.session.user) {
+    if (req.session.user.role !== 'admin') {
+      return res.status(403).send('Access denied. Admin privileges required.');
+    }
     next();
   } else {
-    // Store the URL the user was trying to reach
     req.session.returnTo = req.originalUrl;
     res.redirect('/login');
   }
@@ -1108,18 +1112,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       }
     }
 
-    // Create session
-    req.session.user = {
-      id: user.id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      phone: user.phone,
-      role: user.role,
-      invite_code: user.invite_code,
-      assignments: assignments,
-    };
-
-    // Generate JWT token with assignments for guards
+    // Generate JWT token
     const tokenPayload = {
       id: user.id,
       first_name: user.first_name,
@@ -1132,15 +1125,26 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       ongoing_patrol: ongoingPatrol,
     };
 
-    // Include assignments in token for guards
     if (user.role === 'guard') {
       tokenPayload.assignments = assignments;
     }
 
     const token = generateToken(tokenPayload);
 
-    // Get the returnTo URL from session or default to /api-endpoints
-    const returnTo = req.session.returnTo || '/api-endpoints';
+    // Create session with token so web views can call API
+    req.session.user = {
+      id: user.id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone,
+      role: user.role,
+      invite_code: user.invite_code,
+      assignments: assignments,
+      token: token,
+    };
+
+    // Get the returnTo URL from session or default to /admin/dashboard
+    const returnTo = req.session.returnTo || '/admin/dashboard';
     delete req.session.returnTo; // Clear it after use
 
     res.json({
@@ -1381,25 +1385,424 @@ app.post('/api/verify-token', (req, res) => {
 });
 
 // ============================================
-// PROTECTED ROUTES EXAMPLE
+// ADMIN DASHBOARD — SUBSCRIPTION & PAYMENTS
 // ============================================
 
 /**
- * GET /api/admin/dashboard
- * Protected route example - requires authentication
+ * GET /admin/dashboard
+ * Web-based admin dashboard page (session auth)
  */
-app.get('/api/admin/dashboard', verifyTokenMiddleware, (req, res) => {
-  res.json({
-    message: 'Welcome to the admin dashboard',
-    user: req.user,
-    data: {
-      totalGuards: 45,
-      activeShifts: 12,
-      pendingReports: 5,
-    }
+app.get('/admin/dashboard', requireAuth, async (req, res) => {
+  res.render('admin_dashboard', {
+    user: req.session.user,
   });
 });
 
+/**
+ * GET /api/admin/dashboard
+ * Dashboard summary as JSON (token auth, used by mobile/api)
+ * Optional ?org_id=xxx to scope data to a single organization
+ */
+app.get('/api/admin/dashboard', verifyTokenMiddleware, async (req, res) => {
+  try {
+    const orgId = req.query.org_id || null;
+    const data = await buildDashboardSummary(orgId);
+    res.json(data);
+  } catch (err) {
+    console.error('Dashboard error:', err);
+    res.status(500).json({ error: 'Failed to load dashboard' });
+  }
+});
+
+/**
+ * GET /api/admin/dashboard/payments/:orgId
+ * Payment history for a specific organization
+ */
+app.get('/api/admin/dashboard/payments/:orgId', verifyTokenMiddleware, async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const result = await pool.query(
+      'SELECT * FROM subscription_payments WHERE organization = $1 ORDER BY period_start DESC LIMIT 12',
+      [orgId]
+    );
+    res.json({ payments: result.rows || [] });
+  } catch (err) {
+    console.error('Payments fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch payments' });
+  }
+});
+
+/**
+ * POST /api/admin/dashboard/payments/:id/mark-paid
+ * Mark a subscription payment as paid (uses pool.query to bypass Directus permission limits)
+ */
+app.post('/api/admin/dashboard/payments/:id/mark-paid', verifyTokenMiddleware, async (req, res) => {
+  try {
+    const paymentId = req.params.id;
+    const { amount_paid, paid_at, payment_method } = req.body || {};
+
+    await pool.query(
+      `UPDATE subscription_payments SET status = 'paid', amount_paid = $1, paid_at = $2, payment_method = COALESCE($3, payment_method) WHERE id = $4`,
+      [amount_paid || 0, paid_at || new Date().toISOString(), payment_method || null, paymentId]
+    );
+
+    res.json({ success: true, message: 'Payment marked as paid' });
+  } catch (err) {
+    console.error('Mark paid error:', err);
+    res.status(500).json({ error: 'Failed to mark payment as paid' });
+  }
+});
+
+/**
+ * POST /api/admin/dashboard/organizations/:id/generate-payments
+ * Auto-generate missing monthly payment records for an organization
+ */
+app.post('/api/admin/dashboard/organizations/:id/generate-payments', verifyTokenMiddleware, async (req, res) => {
+  try {
+    const orgId = req.params.id;
+    const orgResult = await pool.query('SELECT * FROM organizations WHERE id = $1', [orgId]);
+    const org = orgResult.rows[0];
+    if (!org) return res.status(404).json({ error: 'Organization not found' });
+
+    const existingResult = await pool.query(
+      'SELECT DISTINCT TO_CHAR(period_start, \'YYYY-MM\') AS month_key FROM subscription_payments WHERE organization = $1',
+      [orgId]
+    );
+    const existingMonths = new Set(existingResult.rows.map(r => r.month_key));
+
+    const now = new Date();
+    const generated = [];
+
+    for (let i = 0; i >= -5; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (existingMonths.has(monthKey)) continue;
+
+      const periodEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      const dueDate = new Date(d.getFullYear(), d.getMonth() + 1, 15);
+
+      const insertResult = await pool.query(
+        `INSERT INTO subscription_payments (organization, period_start, period_end, amount_due, amount_paid, status, due_date)
+         VALUES ($1, $2, $3, $4, 0, 'unpaid', $5)
+         RETURNING *`,
+        [
+          orgId,
+          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`,
+          `${periodEnd.getFullYear()}-${String(periodEnd.getMonth() + 1).padStart(2, '0')}-${String(periodEnd.getDate()).padStart(2, '0')}`,
+          org.monthly_rate || 0,
+          `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(dueDate.getDate()).padStart(2, '0')}`,
+        ]
+      );
+      generated.push(insertResult.rows[0]);
+    }
+
+    res.json({ message: `Generated ${generated.length} pending payment records`, generated });
+  } catch (err) {
+    console.error('Generate payments error:', err);
+    res.status(500).json({ error: 'Failed to generate payments' });
+  }
+});
+
+/**
+ * POST /api/admin/dashboard/generate-all-payments
+ * Generate missing payment records for ALL organizations (batch)
+ */
+app.post('/api/admin/dashboard/generate-all-payments', verifyTokenMiddleware, async (req, res) => {
+  try {
+    const orgsResult = await pool.query('SELECT * FROM organizations');
+    const orgs = orgsResult.rows || [];
+    const results = [];
+    const now = new Date();
+
+    for (const org of orgs) {
+      const existingResult = await pool.query(
+        'SELECT DISTINCT TO_CHAR(period_start, \'YYYY-MM\') AS month_key FROM subscription_payments WHERE organization = $1',
+        [org.id]
+      );
+      const existingMonths = new Set(existingResult.rows.map(r => r.month_key));
+      let generated = 0;
+
+      for (let i = 0; i >= -5; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (existingMonths.has(monthKey)) continue;
+
+        const periodEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        const dueDate = new Date(d.getFullYear(), d.getMonth() + 1, 15);
+
+        await pool.query(
+          `INSERT INTO subscription_payments (organization, period_start, period_end, amount_due, amount_paid, status, due_date)
+           VALUES ($1, $2, $3, $4, 0, 'unpaid', $5)`,
+          [
+            org.id,
+            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`,
+            `${periodEnd.getFullYear()}-${String(periodEnd.getMonth() + 1).padStart(2, '0')}-${String(periodEnd.getDate()).padStart(2, '0')}`,
+            org.monthly_rate || 0,
+            `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(dueDate.getDate()).padStart(2, '0')}`,
+          ]
+        );
+        generated++;
+      }
+      if (generated > 0) results.push({ org: org.name, id: org.id, generated });
+    }
+
+    res.json({ message: `Generated payments for ${results.length} organizations`, details: results });
+  } catch (err) {
+    console.error('Batch generate error:', err);
+    res.status(500).json({ error: 'Failed to generate payments' });
+  }
+});
+
+/**
+ * GET /api/admin/dashboard/guards
+ * List all guards with contact info, assignments, and patrol status
+ * Optional ?org_id=xxx to scope to a single organization (by invite_code)
+ */
+app.get('/api/admin/dashboard/guards', verifyTokenMiddleware, async (req, res) => {
+  try {
+    const orgId = req.query.org_id || null;
+    let inviteCode = null;
+    if (orgId) {
+      const orgResult = await pool.query('SELECT invite_code FROM organizations WHERE id = $1', [orgId]);
+      inviteCode = orgResult.rows[0]?.invite_code || null;
+    }
+
+    let guardsEndpoint = "/items/users?filter[role][_eq]=guard&fields=*";
+    if (inviteCode) {
+      guardsEndpoint += `&filter[invite_code][_eq]=${encodeURIComponent(inviteCode)}`;
+    }
+    const guardsResponse = await query(guardsEndpoint);
+    const guards = guardsResponse.data.data || [];
+
+    const locationsResponse = await query('/items/locations?fields=id,name');
+    const locations = locationsResponse.data.data || [];
+    const locationsById = new Map(locations.map(l => [l.id, l.name]));
+
+    const enriched = [];
+    for (const g of guards) {
+      let assignment = null;
+      let patrol = null;
+      try {
+        const a = await query(`/items/assignments?filter[user_id][_eq]=${g.id}&sort=-date_updated&limit=1`);
+        assignment = (a.data.data || [])[0] || null;
+      } catch (e) {}
+      try {
+        const p = await query(`/items/patrols?filter[user_id][_eq]=${g.id}&sort=-start_time&limit=1`);
+        patrol = (p.data.data || [])[0] || null;
+      } catch (e) {}
+
+      const locId = assignment?.location || '';
+      enriched.push({
+        id: g.id,
+        first_name: g.first_name,
+        last_name: g.last_name,
+        phone: g.phone,
+        email: g.email,
+        invite_code: g.invite_code,
+        location: locationsById.get(locId) || locId || 'Not assigned',
+        assigned_areas: assignment?.assigned_areas || '',
+        operating_hours: assignment?.start_time && assignment?.end_time
+          ? `${assignment.start_time} - ${assignment.end_time}`
+          : 'Not set',
+        patrol_status: patrol && !patrol.end_time ? 'On Patrol' : 'Inactive',
+        last_access: g.last_access || null,
+        status: g.status || 'active',
+      });
+    }
+    res.json({ guards: enriched });
+  } catch (err) {
+    console.error('Guards fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch guards' });
+  }
+});
+
+/**
+ * GET /api/admin/dashboard/supervisors
+ * List all supervisors with masked phone (toggleable)
+ * Optional ?org_id=xxx to scope to a single organization (by invite_code)
+ */
+app.get('/api/admin/dashboard/supervisors', verifyTokenMiddleware, async (req, res) => {
+  try {
+    const orgId = req.query.org_id || null;
+    let inviteCode = null;
+    if (orgId) {
+      const orgResult = await pool.query('SELECT invite_code FROM organizations WHERE id = $1', [orgId]);
+      inviteCode = orgResult.rows[0]?.invite_code || null;
+    }
+
+    let endpoint = "/items/users?filter[role][_eq]=supervisor&fields=*";
+    if (inviteCode) {
+      endpoint += `&filter[invite_code][_eq]=${encodeURIComponent(inviteCode)}`;
+    }
+    const response = await query(endpoint);
+    const supervisors = (response.data.data || []).map(s => ({
+      id: s.id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      phone: s.phone ? s.phone.replace(/(\d{3})\d{4}(\d{2})/, '$1****$2') : null,
+      phone_raw: s.phone || null,
+      email: s.email,
+      invite_code: s.invite_code,
+      status: s.status || 'active',
+      last_access: s.last_access || null,
+    }));
+    res.json({ supervisors });
+  } catch (err) {
+    console.error('Supervisors fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch supervisors' });
+  }
+});
+
+/**
+ * GET /api/admin/dashboard/search?q=<query>
+ * Search organizations by name
+ */
+app.get('/api/admin/dashboard/search', verifyTokenMiddleware, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.json({ organizations: [] });
+
+    const result = await pool.query(
+      'SELECT id, name, invite_code, subscription_tier, subscription_status FROM organizations WHERE name ILIKE $1 LIMIT 20',
+      [`%${q}%`]
+    );
+    res.json({ organizations: result.rows || [] });
+  } catch (err) {
+    console.error('Search error:', err);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
+/**
+ * GET /api/admin/dashboard/organizations
+ * List all organizations (for sidebar/search dropdown)
+ */
+app.get('/api/admin/dashboard/organizations', verifyTokenMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, invite_code, subscription_tier, subscription_status, monthly_rate FROM organizations ORDER BY name'
+    );
+    res.json({ organizations: result.rows || [] });
+  } catch (err) {
+    console.error('Orgs fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch organizations' });
+  }
+});
+
+/**
+ * Build dashboard summary data (shared between API and web view)
+ * Uses pool.query for subscription_payments (bypasses Directus static token permission limit)
+ * @param {string|null} orgId - If provided, scope data to a single organization
+ */
+async function buildDashboardSummary(orgId = null) {
+  let orgs = [];
+  if (orgId) {
+    const orgResult = await pool.query('SELECT * FROM organizations WHERE id = $1', [orgId]);
+    if (orgResult.rows[0]) orgs = [orgResult.rows[0]];
+  } else {
+    const orgsResponse = await query('/items/organizations');
+    orgs = orgsResponse.data.data || [];
+  }
+
+  let unpaidPayments = [];
+  let recentPayments = [];
+  try {
+    let unpaidSql = "SELECT * FROM subscription_payments WHERE status IN ('unpaid', 'overdue')";
+    let recentSql = 'SELECT * FROM subscription_payments';
+    const params = [];
+    if (orgId) {
+      unpaidSql += ' AND organization = $1';
+      recentSql += ' WHERE organization = $1';
+      params.push(orgId);
+    }
+    recentSql += ' ORDER BY period_start DESC LIMIT 50';
+
+    const unpaidResult = await pool.query(unpaidSql, params);
+    unpaidPayments = unpaidResult.rows || [];
+
+    const recentResult = await pool.query(recentSql, params);
+    recentPayments = (recentResult.rows || []).map(p => ({
+      id: p.id,
+      organization: p.organization,
+      period_start: p.period_start,
+      period_end: p.period_end,
+      amount_due: parseFloat(p.amount_due || 0).toFixed(2),
+      amount_paid: parseFloat(p.amount_paid || 0).toFixed(2),
+      status: p.status,
+      due_date: p.due_date,
+      paid_at: p.paid_at,
+      payment_method: p.payment_method,
+    }));
+  } catch (e) {
+    console.error('Error fetching subscription_payments:', e.message);
+  }
+
+  const totalOrgs = orgs.length;
+  const activeSubscriptions = orgs.filter(o =>
+    o.subscription_tier && o.subscription_tier !== 'free' && o.subscription_status === 'active'
+  ).length;
+
+  const totalOutstanding = unpaidPayments.reduce(
+    (sum, p) => sum + parseFloat(p.amount_due || 0) - parseFloat(p.amount_paid || 0), 0
+  );
+  const overdueCount = unpaidPayments.filter(p => p.status === 'overdue').length;
+
+  const monthlyRecurringRevenue = orgs
+    .filter(o => o.subscription_status === 'active')
+    .reduce((sum, o) => sum + parseFloat(o.monthly_rate || 0), 0);
+
+  const tierBreakdown = {};
+  for (const tier of ['free', 'basic', 'premium', 'enterprise']) {
+    tierBreakdown[tier] = orgs.filter(o => (o.subscription_tier || 'free') === tier).length;
+  }
+
+  let totalGuards = 0;
+  let supervisorCount = 0;
+  try {
+    let guardEndpoint = "/items/users?filter[role][_eq]=guard&aggregate[count]=id";
+    if (orgId && orgs.length) {
+      guardEndpoint += `&filter[invite_code][_eq]=${encodeURIComponent(orgs[0].invite_code)}`;
+    }
+    const guardsResponse = await query(guardEndpoint);
+    totalGuards = guardsResponse.data.data?.[0]?.count?.id || 0;
+  } catch (e) { /* ignore */ }
+  try {
+    let supEndpoint = "/items/users?filter[role][_eq]=supervisor&aggregate[count]=id";
+    if (orgId && orgs.length) {
+      supEndpoint += `&filter[invite_code][_eq]=${encodeURIComponent(orgs[0].invite_code)}`;
+    }
+    const supResponse = await query(supEndpoint);
+    supervisorCount = supResponse.data.data?.[0]?.count?.id || 0;
+  } catch (e) { /* ignore */ }
+
+  const atRiskOrgs = orgs
+    .filter(o => o.subscription_status === 'past_due')
+    .map(o => ({ id: o.id, name: o.name, tier: o.subscription_tier }));
+
+  const selectedOrg = orgs.length === 1 ? {
+    id: orgs[0].id,
+    name: orgs[0].name,
+    invite_code: orgs[0].invite_code,
+    subscription_tier: orgs[0].subscription_tier,
+    subscription_status: orgs[0].subscription_status,
+    monthly_rate: orgs[0].monthly_rate,
+    max_guards: orgs[0].max_guards,
+  } : null;
+
+  return {
+    total_organizations: totalOrgs,
+    total_guards: totalGuards,
+    supervisor_count: supervisorCount,
+    active_subscriptions: activeSubscriptions,
+    total_outstanding: totalOutstanding,
+    overdue_payments: overdueCount,
+    mrr: monthlyRecurringRevenue,
+    tier_breakdown: tierBreakdown,
+    at_risk_orgs: atRiskOrgs,
+    recent_payments: recentPayments,
+    selected_org: selectedOrg,
+  };
+}
 
 // ============================================
 // VIEW ROUTES
@@ -1417,15 +1820,15 @@ app.get('/signup', (req, res) => {
   res.render('signup');
 });
 
-app.get('/paywall', requireAuth, (req, res) => {
+app.get('/paywall', (req, res) => {
   res.render('paywall');
 });
 
-app.get('/documentation', requireAuth, (req, res) => {
+app.get('/documentation', (req, res) => {
   res.render('documentation');
 });
 
-app.get('/api-endpoints', requireAuth, (req, res) => {
+app.get('/api-endpoints', (req, res) => {
   res.render('api_endpoints');
 });
 
@@ -1592,6 +1995,8 @@ app.get('/api/admin/guards', verifyTokenMiddleware, async (req, res) => {
       return res.json({ guards: [] });
     }
 
+    const guardIds = guards.map(g => g.id);
+
     // Load organization locations once so assignment.location IDs can be resolved to names.
     const locationsResponse = await query(`/items/locations?filter[organization][_eq]=${inviteCode}&fields=id,name`);
     const locations = locationsResponse.data.data || [];
@@ -1600,28 +2005,38 @@ app.get('/api/admin/guards', verifyTokenMiddleware, async (req, res) => {
       locationsById.set(loc.id, loc.name);
     }
 
-    // For each guard, get latest assignment by user_id and enrich response fields.
-    const enrichedGuards = [];
-    for (const guard of guards) {
-      let assignment = null;
-      let latestPatrol = null;
-      try {
-        const assignmentsResponse = await query(
-          `/items/assignments?filter[user_id][_eq]=${guard.id}&sort=-date_updated&limit=1`
-        );
-        assignment = (assignmentsResponse.data.data || [])[0] || null;
-      } catch (assignmentError) {
-        console.error(`Error fetching assignment for guard ${guard.id}:`, assignmentError);
+    // Batch-fetch latest assignment per guard and latest patrol per guard
+    let assignmentsByUser = {};
+    let patrolsByUser = {};
+    try {
+      const assignResult = await pool.query(`
+        SELECT DISTINCT ON (user_id) * FROM assignments
+        WHERE user_id = ANY($1)
+        ORDER BY user_id, date_updated DESC
+      `, [guardIds]);
+      for (const row of assignResult.rows) {
+        assignmentsByUser[row.user_id] = row;
       }
+    } catch (e) {
+      console.error('Error batch-fetching assignments:', e.message);
+    }
+    try {
+      const patrolResult = await pool.query(`
+        SELECT DISTINCT ON (user_id) * FROM patrols
+        WHERE user_id = ANY($1)
+        ORDER BY user_id, start_time DESC
+      `, [guardIds]);
+      for (const row of patrolResult.rows) {
+        patrolsByUser[row.user_id] = row;
+      }
+    } catch (e) {
+      console.error('Error batch-fetching patrols:', e.message);
+    }
 
-      try {
-        const patrolResponse = await query(
-          `/items/patrols?filter[user_id][_eq]=${guard.id}&sort=-start_time&limit=1`
-        );
-        latestPatrol = (patrolResponse.data.data || [])[0] || null;
-      } catch (patrolError) {
-        console.error(`Error fetching latest patrol for guard ${guard.id}:`, patrolError);
-      }
+    // Enrich guards with assignment and patrol data
+    const enrichedGuards = guards.map(guard => {
+      const assignment = assignmentsByUser[guard.id] || null;
+      const latestPatrol = patrolsByUser[guard.id] || null;
 
       const locationId = assignment?.location || '';
       const locationName = locationId ? (locationsById.get(locationId) || locationId) : 'Not assigned';
@@ -1650,7 +2065,7 @@ app.get('/api/admin/guards', verifyTokenMiddleware, async (req, res) => {
         lastSeenDisplay = guard.last_access;
       }
 
-      enrichedGuards.push({
+      return {
         ...guard,
         location: locationName,
         location_id: locationId,
@@ -1661,8 +2076,8 @@ app.get('/api/admin/guards', verifyTokenMiddleware, async (req, res) => {
         last_seen_display: lastSeenDisplay,
         is_online: Boolean(isOnActivePatrol),
         patrol_status: normalizedPatrolStatus,
-      });
-    }
+      };
+    });
 
     res.json({
       guards: enrichedGuards
@@ -1853,18 +2268,16 @@ app.get('/api/admin/patrols', verifyTokenMiddleware, async (req, res) => {
     // Get guard IDs
     const guardIds = guards.map(g => g.id);
 
-    // Fetch patrols for all guards in the organization
-    // Directus doesn't support 'in' filter, so we'll fetch each guard's patrols
+    // Fetch patrols for all guards in a single batch query
     let allPatrols = [];
-    for (const guardId of guardIds) {
-      try {
-        const patrolResponse = await query(`/items/patrols?filter[user_id][_eq]=${guardId}&sort=${sort}&limit=${limit}`);
-        if (patrolResponse.data.data) {
-          allPatrols = [...allPatrols, ...patrolResponse.data.data];
-        }
-      } catch (patrolError) {
-        console.error(`Error fetching patrols for guard ${guardId}:`, patrolError);
-      }
+    try {
+      const patrolResult = await pool.query(
+        'SELECT * FROM patrols WHERE user_id = ANY($1) ORDER BY start_time DESC',
+        [guardIds]
+      );
+      allPatrols = patrolResult.rows || [];
+    } catch (patrolError) {
+      console.error('Error batch-fetching patrols:', patrolError);
     }
 
     // Sort combined patrols by start_time
@@ -2179,26 +2592,22 @@ const getAdminLogsHandler = async (req, res) => {
     // Get guard IDs
     const guardIds = guards.map(g => g.id);
 
-    // Fetch logs for all guards in the organization
+    // Fetch logs for all guards in a single batch query
     let allLogs = [];
-    for (const guardId of guardIds) {
-      try {
-        const logResponse = await query(`/items/logs?filter[user_id][_eq]=${guardId}&sort=${sort}&limit=${limit}`);
-        if (logResponse.data.data) {
-          allLogs = [...allLogs, ...logResponse.data.data];
-        }
-      } catch (logError) {
-        console.error(`Error fetching logs for guard ${guardId}:`, logError);
-      }
+    try {
+      const logResult = await pool.query(
+        'SELECT * FROM logs WHERE user_id = ANY($1) ORDER BY timestamp DESC',
+        [guardIds]
+      );
+      allLogs = logResult.rows || [];
+    } catch (logError) {
+      console.error('Error batch-fetching logs:', logError);
     }
-
-    // Sort combined logs by timestamp
-    allLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     // Limit results
     const limitedLogs = allLogs.slice(0, parseInt(limit));
 
-    // Step 3 (minimal): resolve log location from user -> assignment -> location name.
+    // Resolve log location from user -> assignment -> location name.
     const locationsById = new Map();
     try {
       const locationsResponse = await query(`/items/locations?filter[organization][_eq]=${inviteCode}&fields=id,name`);
@@ -2210,17 +2619,19 @@ const getAdminLogsHandler = async (req, res) => {
       console.error('Error fetching locations for admin logs location mapping:', locationError);
     }
 
+    // Batch-fetch latest assignment per guard
     const assignmentByUserId = new Map();
-    for (const guardId of guardIds) {
-      try {
-        const assignmentResponse = await query(
-          `/items/assignments?filter[user_id][_eq]=${guardId}&sort=-date_updated&limit=1`
-        );
-        assignmentByUserId.set(guardId, (assignmentResponse.data.data || [])[0] || null);
-      } catch (assignmentError) {
-        console.error(`Error fetching assignment for guard ${guardId}:`, assignmentError);
-        assignmentByUserId.set(guardId, null);
+    try {
+      const assignResult = await pool.query(`
+        SELECT DISTINCT ON (user_id) * FROM assignments
+        WHERE user_id = ANY($1)
+        ORDER BY user_id, date_updated DESC
+      `, [guardIds]);
+      for (const row of assignResult.rows) {
+        assignmentByUserId.set(row.user_id, row);
       }
+    } catch (assignError) {
+      console.error('Error batch-fetching assignments for logs:', assignError);
     }
 
     const logsWithResolvedLocation = limitedLogs.map((log) => {
