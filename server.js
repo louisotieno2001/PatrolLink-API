@@ -85,7 +85,6 @@ const registerLimiter = rateLimit({
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
-app.use(session({ secret: 'secret', resave: false, saveUninitialized: true }));
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 app.use(bodyParser.json({ limit: '50mb' }));
