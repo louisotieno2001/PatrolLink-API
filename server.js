@@ -46,7 +46,7 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
   max: parseInt(process.env.DB_POOL_MAX, 10) || 50,
-  ...(process.env.NODE_ENV === 'production' ? { ssl: { rejectUnauthorized: false } } : {}),
+  ...(process.env.DB_SSL === 'true' ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 // Rate Limiters
