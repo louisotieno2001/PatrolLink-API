@@ -1,116 +1,73 @@
-# OmniWatch Backend
+# PatrolLink Backend
 
-Express.js API backend for the OmniWatch guard monitoring mobile application.
+Express.js API backend for the PatrolLink guard monitoring mobile application, built on PostgreSQL with Directus as the headless CMS and data layer.
+
+## Architecture
+
+- **Express.js** — REST API server
+- **PostgreSQL (PostGIS)** — primary database
+- **Directus** — headless CMS managing core data collections (users, patrols, assignments, logs, locations)
+- **connect-pg-simple** — Express session store backed by PostgreSQL
+- **Docker Compose** — runs postgres, directus, and express services
 
 ## Prerequisites
 
-- Node.js (v18 or higher)
-- MongoDB (local or Atlas cloud)
+- Docker & Docker Compose
+- Node.js (v18+) for local development
 
 ## Setup
 
-1. **Install Dependencies**
-   ```bash
-   node scripts/generate-package-json.cjs
-   npm install
-   ```
-
-2. **Configure Environment**
+1. **Configure Environment**
    ```bash
    cp .env.example .env
    ```
-   
-   Edit `.env` with your settings:
-   ```env
-   PORT=5000
-   MONGODB_URI=mongodb://localhost:27017/omniwatch
-   JWT_SECRET=your_super_secret_jwt_key_change_in_production
+   Edit `.env` with your database, Directus, and JWT settings.
+
+2. **Start Services**
+   ```bash
+   docker compose up -d
    ```
+   This starts PostgreSQL, Directus (port 8057), and the Express API (port 5000).
 
-3. **Start MongoDB**
-   - Local: Make sure MongoDB is running
-   - Cloud: Update `MONGODB_URI` with your Atlas connection string
+3. **Directus Bootstrap** (first run only)
+   The Directus container auto-migrates the schema on first startup using `snapshot.yaml`.
 
-## Running the Server
+## Running Locally (without Docker)
 
-**Development mode (auto-restart on changes):**
 ```bash
+npm install
 npm run dev
 ```
 
-**Production mode:**
-```bash
-npm start
-```
-
-Server runs at `http://localhost:5000`
-
-## API Endpoints
-
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Register new user |
-| POST | `/api/auth/login` | Login user |
-| GET | `/api/auth/me` | Get current user profile |
-
-### Users (Protected)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/users/guards` | Get all guards (supervisor/admin) |
-| GET | `/api/users/supervisors` | Get all supervisors (admin) |
-| PUT | `/api/users/profile` | Update profile |
-| PUT | `/api/users/:id/deactivate` | Deactivate user |
-| PUT | `/api/users/:id/activate` | Activate user |
-
-### Patrols
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/patrols` | Start new patrol (guard) |
-| POST | `/api/patrols/:id/checkpoint` | Add checkpoint |
-| PUT | `/api/patrols/:id/end` | End patrol |
-| GET | `/api/patrols/my` | Get my patrols (guard) |
-| GET | `/api/patrols` | Get all patrols (supervisor/admin) |
-| GET | `/api/patrols/:id` | Get patrol details |
+Requires a running PostgreSQL instance with `DB_*` env vars configured.
 
 ## Project Structure
 
 ```
-backend/
-├── config/
-│   └── db.js              # MongoDB connection
-├── controllers/
-│   ├── authController.js  # Auth logic
-│   └── patrolController.js # Patrol logic
-├── middleware/
-│   └── auth.js            # JWT auth & role middleware
-├── models/
-│   ├── User.js            # User schema
-│   └── Patrol.js          # Patrol schema
-├── routes/
-│   ├── auth.js            # Auth routes
-│   ├── patrols.js         # Patrol routes
-│   └── users.js           # User routes
-├── .env.example           # Environment template
-├── package.cjs
-├── scripts/
-│   └── generate-package-json.cjs
-└── server.js              # Entry point
+.
+├── server.js                    # Express entry point (all routes)
+├── snapshot.yaml                # Directus schema snapshot
+├── docker-compose.yml           # Service orchestration
+├── Dockerfile                   # Express container build
+├── .env                         # Environment configuration
+└── docker/
+    ├── pgdata/                  # PostgreSQL data volume
+    └── directus/
+        ├── uploads/
+        ├── extensions/
+        └── templates/
 ```
 
 ## User Roles
 
-- **guard**: Can manage their own patrols and checkpoints
-- **supervisor**: Can view all patrols, manage guards
-- **admin**: Full access to all features
+- **guard** — manage own patrols and logs
+- **supervisor** — view all patrols, manage guards
+- **admin** — full access
 
-## Testing with React Native
+## Key Features
 
-Update your API base URL in the app to point to your computer's IP:
-
-```javascript
-const API_BASE_URL = 'http://YOUR_IP_ADDRESS:5000/api';
-```
-
-For Android emulator, use `http://10.0.2.2:5000/api`
-For iOS simulator, use `http://localhost:5000/api`
+- JWT + session-based authentication
+- Real-time GPS patrol tracking via `gps_points` table
+- Push notifications via admin_push_tokens
+- Organization-based multi-tenancy via invite codes
+- Periodic push notification scanning
