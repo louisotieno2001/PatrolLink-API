@@ -74,7 +74,7 @@ const registerLimiter = rateLimit({
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
-app.use(session({ secret: 'secret', resave: false, saveUninitialized: true }));
+// app.use(session({ secret: 'secret', resave: false, saveUninitialized: true }));
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -2960,7 +2960,11 @@ app.patch('/api/patrols/:id/location', verifyTokenMiddleware, async (req, res) =
     location_data.forEach((point) => {
       const lat = parseFloat(point.latitude);
       const lng = parseFloat(point.longitude);
-      const ts = point.timestamp || new Date().toISOString();
+      let ts = point.timestamp || new Date().toISOString();
+      // Convert epoch milliseconds to ISO string if needed
+      if (typeof ts === 'number' || (!isNaN(Number(ts)) && Number(ts) > 1e11)) {
+        ts = new Date(Number(ts)).toISOString();
+      }
 
       if (!isNaN(lat) && !isNaN(lng)) {
         values.push(`($${paramCounter}, $${paramCounter + 1}, $${paramCounter + 2}, $${paramCounter + 3})`);
@@ -3173,10 +3177,27 @@ app.delete('/api/account', verifyTokenMiddleware, async (req, res) => {
 // ============================================
 // START SERVER
 // ============================================
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 PatrolLink API ready at http://localhost:${PORT}/api`);
-  console.log(`📖 API Documentation at http://localhost:${PORT}/documentation`);
+const ensureTables = async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS "session" (
+        "sid" varchar NOT NULL COLLATE "default",
+        "sess" json NOT NULL,
+        "expire" timestamp(6) NOT NULL
+      ) WITH (OIDS=FALSE)
+    `);
+    await pool.query(`
+      ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+    `).catch(() => {}); // index may already exist
+    console.log('Session table ensured');
+  } catch (err) {
+    console.error('Failed to create session table:', err);
+  }
+};
+
+app.listen(PORT, async () => {
+  console.log(`🚀 API up and running on port ${PORT}`);
+  await ensureTables();
 
   setTimeout(() => {
     runPeriodicPushScan().catch((error) => {
