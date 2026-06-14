@@ -229,7 +229,10 @@
   <script>
     // Handle history recognition for redirection
     const urlParams = new URLSearchParams(window.location.search);
-    const returnTo = urlParams.get('returnTo') || '/api-endpoints';
+    const rawReturnTo = urlParams.get('returnTo') || '';
+    // Only allow relative paths to prevent open redirect
+    const SAFE_PATHS = ['/admin/dashboard', '/api-endpoints', '/documentation', '/paywall', '/login', '/signup'];
+    const returnTo = SAFE_PATHS.includes(rawReturnTo) ? rawReturnTo : '/api-endpoints';
     const dynamicLinks = document.querySelectorAll('.continue-link-dynamic');
     
     dynamicLinks.forEach(link => {

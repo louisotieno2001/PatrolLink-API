@@ -18,10 +18,26 @@ const helmet = require('helmet');
 
 const app = express();
 app.use(helmet({
-  contentSecurityPolicy: false, // Disable CSP for now as it might break EJS/inline scripts if not configured carefully
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'https://maps.googleapis.com', 'https://maps.gstatic.com'],
+      connectSrc: ["'self'", 'https://www.omniwatch.hustlerati.com'],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
 }));
 const PORT = process.env.APIPORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || 'OhubxhJ46DEJWeRdmLERzrDgPYrSsYaCdZ0eE2ITw9pTZDIVODHXicYiZka';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set.');
+  process.exit(1);
+}
 const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:8081',
   'http://localhost:19000',
@@ -45,7 +61,7 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
   max: parseInt(process.env.DB_POOL_MAX, 10) || 50,
-  // ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 
 // Rate Limiters
@@ -71,18 +87,51 @@ const registerLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const patrolLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // Limit each IP to 10 patrol creations per minute
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many patrol requests, please slow down'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const logLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20, // Limit each IP to 20 log creations per minute
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many log requests, please slow down'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const locationLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // Limit each IP to 60 location updates per minute
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many location update requests, please slow down'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 // app.use(session({ secret: 'secret', resave: false, saveUninitialized: true }));
 app.use(cookieParser());
-app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
-app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '5mb' }));
+app.use(bodyParser.json({ limit: '5mb' }));
 app.use(cors({
   origin: (origin, callback) => {
-    // Native mobile requests often omit Origin entirely.
-    if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Allow requests from mobile apps without Origin header if they include a valid auth token
+    if (!origin && req.headers.authorization) return callback(null, true);
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
@@ -104,9 +153,6 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
   },
 }));
-
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
 
 // ============================================
 // HELPER FUNCTIONS
@@ -789,6 +835,24 @@ const checkSession = (req, res, next) => {
 };
 
 /**
+ * Validates that a redirect target is a safe relative path (prevents open redirect)
+ */
+const SAFE_REDIRECT_PATHS = new Set([
+  '/admin/dashboard', '/api-endpoints', '/documentation',
+  '/paywall', '/login', '/signup',
+]);
+const isValidRedirect = (target) => {
+  if (!target || typeof target !== 'string') return false;
+  try {
+    const url = new URL(target, 'http://localhost');
+    // Only allow same-origin relative paths
+    return url.origin === 'http://localhost' && SAFE_REDIRECT_PATHS.has(url.pathname);
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Require Auth middleware (for web views)
  * Denies access to non-admin users
  */
@@ -799,7 +863,10 @@ const requireAuth = (req, res, next) => {
     }
     next();
   } else {
-    req.session.returnTo = req.originalUrl;
+    const returnTo = req.originalUrl;
+    if (isValidRedirect(returnTo)) {
+      req.session.returnTo = returnTo;
+    }
     res.redirect('/login');
   }
 };
@@ -823,6 +890,21 @@ const verifyTokenMiddleware = (req, res, next) => {
   
   req.user = decoded;
   next();
+};
+
+/**
+ * Require specific role middleware
+ */
+const requireRole = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: `Access denied. Required role: ${roles.join(' or ')}`
+      });
+    }
+    next();
+  };
 };
 
 // ============================================
@@ -853,6 +935,25 @@ app.post('/api/register', registerLimiter, async (req, res) => {
       return res.status(400).json({ 
         error: 'Validation Error', 
         message: 'Please fill in all required fields' 
+      });
+    }
+
+    // Server-side password strength validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",.\/<>?~])[A-Za-z\d!@#$%^&*()_+\-=\[\]{}|;':",.\/<>?~]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one digit, and one special character (!@#$%^&*()_+-=[]{}|;\':",./<>?~)'
+      });
+    }
+
+    // Check if phone number is already registered
+    const existingQuery = `/items/users?filter[phone][_eq]=${encodeURIComponent(phone)}&limit=1`;
+    const existingResponse = await query(existingQuery);
+    if (existingResponse?.data?.data?.length > 0) {
+      return res.status(409).json({
+        error: 'Conflict',
+        message: 'An account with this phone number already exists'
       });
     }
 
@@ -903,7 +1004,6 @@ app.get('/api/assignments', verifyTokenMiddleware, async (req, res) => {
   try {
     // Fetch assignments from Directus with guard info
     const response = await query('/items/assignments');
-    // console.log(response)
     res.json({
       assignments: response.data.data
     });
@@ -1008,7 +1108,6 @@ app.get('/api/locations', verifyTokenMiddleware, async (req, res) => {
       locations: response.data.data
     });
 
-    // console.log("Locations data",response.data.data)
   } catch (error) {
     console.error('Error fetching locations:', error);
     res.status(500).json({
@@ -1037,12 +1136,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 
     // Find user in Directus by phone
     const queryUrl = `/items/users?filter[phone][_eq]=${encodeURIComponent(phone)}`;
-    // console.log("Query URL:", `${url}${queryUrl}`);
     const users = await query(queryUrl);
-
-    // console.log("Full response:", users);
-    // console.log("Response data:", users.data);
-    // console.log("Found users:", users.data.data);
 
     if (!users.data.data || users.data.data.length === 0) {
       return res.status(401).json({ 
@@ -1143,7 +1237,8 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     };
 
     // Get the returnTo URL from session or default to /admin/dashboard
-    const returnTo = req.session.returnTo || '/admin/dashboard';
+    const rawReturnTo = req.session.returnTo;
+    const returnTo = rawReturnTo && isValidRedirect(rawReturnTo) ? rawReturnTo : '/admin/dashboard';
     delete req.session.returnTo; // Clear it after use
 
     res.json({
@@ -1402,7 +1497,7 @@ app.get('/admin/dashboard', requireAuth, async (req, res) => {
  * Dashboard summary as JSON (token auth, used by mobile/api)
  * Optional ?org_id=xxx to scope data to a single organization
  */
-app.get('/api/admin/dashboard', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/admin/dashboard', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const orgId = req.query.org_id || null;
     const data = await buildDashboardSummary(orgId);
@@ -1417,7 +1512,7 @@ app.get('/api/admin/dashboard', verifyTokenMiddleware, async (req, res) => {
  * GET /api/admin/dashboard/payments/:orgId
  * Payment history for a specific organization
  */
-app.get('/api/admin/dashboard/payments/:orgId', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/admin/dashboard/payments/:orgId', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const { orgId } = req.params;
     const result = await pool.query(
@@ -1435,7 +1530,7 @@ app.get('/api/admin/dashboard/payments/:orgId', verifyTokenMiddleware, async (re
  * POST /api/admin/dashboard/payments/:id/mark-paid
  * Mark a subscription payment as paid (uses pool.query to bypass Directus permission limits)
  */
-app.post('/api/admin/dashboard/payments/:id/mark-paid', verifyTokenMiddleware, async (req, res) => {
+app.post('/api/admin/dashboard/payments/:id/mark-paid', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const paymentId = req.params.id;
     const { amount_paid, paid_at, payment_method } = req.body || {};
@@ -1456,7 +1551,7 @@ app.post('/api/admin/dashboard/payments/:id/mark-paid', verifyTokenMiddleware, a
  * POST /api/admin/dashboard/organizations/:id/generate-payments
  * Auto-generate missing monthly payment records for an organization
  */
-app.post('/api/admin/dashboard/organizations/:id/generate-payments', verifyTokenMiddleware, async (req, res) => {
+app.post('/api/admin/dashboard/organizations/:id/generate-payments', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const orgId = req.params.id;
     const orgResult = await pool.query('SELECT * FROM organizations WHERE id = $1', [orgId]);
@@ -1506,7 +1601,7 @@ app.post('/api/admin/dashboard/organizations/:id/generate-payments', verifyToken
  * POST /api/admin/dashboard/generate-all-payments
  * Generate missing payment records for ALL organizations (batch)
  */
-app.post('/api/admin/dashboard/generate-all-payments', verifyTokenMiddleware, async (req, res) => {
+app.post('/api/admin/dashboard/generate-all-payments', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const orgsResult = await pool.query('SELECT * FROM organizations');
     const orgs = orgsResult.rows || [];
@@ -1557,7 +1652,7 @@ app.post('/api/admin/dashboard/generate-all-payments', verifyTokenMiddleware, as
  * List all guards with contact info, assignments, and patrol status
  * Optional ?org_id=xxx to scope to a single organization (by invite_code)
  */
-app.get('/api/admin/dashboard/guards', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/admin/dashboard/guards', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const orgId = req.query.org_id || null;
     let inviteCode = null;
@@ -1584,11 +1679,11 @@ app.get('/api/admin/dashboard/guards', verifyTokenMiddleware, async (req, res) =
       try {
         const a = await query(`/items/assignments?filter[user_id][_eq]=${g.id}&sort=-date_updated&limit=1`);
         assignment = (a.data.data || [])[0] || null;
-      } catch (e) {}
+      } catch (e) { console.error('Error fetching assignment for guard:', g.id, e); }
       try {
         const p = await query(`/items/patrols?filter[user_id][_eq]=${g.id}&sort=-start_time&limit=1`);
         patrol = (p.data.data || [])[0] || null;
-      } catch (e) {}
+      } catch (e) { console.error('Error fetching patrol for guard:', g.id, e); }
 
       const locId = assignment?.location || '';
       enriched.push({
@@ -1620,7 +1715,7 @@ app.get('/api/admin/dashboard/guards', verifyTokenMiddleware, async (req, res) =
  * List all supervisors with masked phone (toggleable)
  * Optional ?org_id=xxx to scope to a single organization (by invite_code)
  */
-app.get('/api/admin/dashboard/supervisors', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/admin/dashboard/supervisors', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const orgId = req.query.org_id || null;
     let inviteCode = null;
@@ -1656,7 +1751,7 @@ app.get('/api/admin/dashboard/supervisors', verifyTokenMiddleware, async (req, r
  * GET /api/admin/dashboard/search?q=<query>
  * Search organizations by name
  */
-app.get('/api/admin/dashboard/search', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/admin/dashboard/search', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     if (!q) return res.json({ organizations: [] });
@@ -1676,7 +1771,7 @@ app.get('/api/admin/dashboard/search', verifyTokenMiddleware, async (req, res) =
  * GET /api/admin/dashboard/organizations
  * List all organizations (for sidebar/search dropdown)
  */
-app.get('/api/admin/dashboard/organizations', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/admin/dashboard/organizations', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT id, name, invite_code, subscription_tier, subscription_status, monthly_rate FROM organizations ORDER BY name'
@@ -1764,7 +1859,7 @@ async function buildDashboardSummary(orgId = null) {
     }
     const guardsResponse = await query(guardEndpoint);
     totalGuards = guardsResponse.data.data?.[0]?.count?.id || 0;
-  } catch (e) { /* ignore */ }
+  } catch (e) { console.error('Error fetching guard count:', e); }
   try {
     let supEndpoint = "/items/users?filter[role][_eq]=supervisor&aggregate[count]=id";
     if (orgId && orgs.length) {
@@ -1772,7 +1867,7 @@ async function buildDashboardSummary(orgId = null) {
     }
     const supResponse = await query(supEndpoint);
     supervisorCount = supResponse.data.data?.[0]?.count?.id || 0;
-  } catch (e) { /* ignore */ }
+  } catch (e) { console.error('Error fetching supervisor count:', e); }
 
   const atRiskOrgs = orgs
     .filter(o => o.subscription_status === 'past_due')
@@ -1802,6 +1897,19 @@ async function buildDashboardSummary(orgId = null) {
     selected_org: selectedOrg,
   };
 }
+
+// ============================================
+// HEALTH CHECK
+// ============================================
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    await query('/server/info');
+    res.json({ status: 'ok', db: 'connected', directus: 'connected' });
+  } catch (error) {
+    res.status(503).json({ status: 'error', message: error.message });
+  }
+});
 
 // ============================================
 // VIEW ROUTES
@@ -1857,7 +1965,7 @@ app.use((err, req, res, next) => {
 // ============================================
 // GET ORGANIZATIONS INVITE CODES
 // ============================================
-app.get('/api/organizations/invite-codes', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/organizations/invite-codes', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const response = await query('/items/organizations?fields=invite_code');
     const inviteCodes = response.data.data.map(org => org.invite_code);
@@ -1973,11 +2081,9 @@ app.get('/api/patrols', verifyTokenMiddleware, async (req, res) => {
  * Get all guards for the admin's organization
  * Requires authentication and returns guards with matching invite_code
  */
-app.get('/api/admin/guards', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/admin/guards', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
-
-    // console.log('Invite code', inviteCode)
 
     if (!inviteCode) {
       return res.status(400).json({
@@ -2095,7 +2201,7 @@ app.get('/api/admin/guards', verifyTokenMiddleware, async (req, res) => {
  * Create a new assignment for a guard in the admin's organization
  * Body: { user_id, location, assigned_areas, start_time, end_time }
  */
-app.post('/api/admin/assignments', verifyTokenMiddleware, async (req, res) => {
+app.post('/api/admin/assignments', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { user_id, location, assigned_areas, start_time, end_time } = req.body || {};
@@ -2169,7 +2275,7 @@ app.post('/api/admin/assignments', verifyTokenMiddleware, async (req, res) => {
  * DELETE /api/admin/guards/:id
  * Remove a guard from the admin's organization and cascade-delete related data.
  */
-app.delete('/api/admin/guards/:id', verifyTokenMiddleware, async (req, res) => {
+app.delete('/api/admin/guards/:id', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { id } = req.params;
@@ -2250,7 +2356,7 @@ app.delete('/api/admin/guards/:id', verifyTokenMiddleware, async (req, res) => {
  * Get all patrols for the admin's organization
  * Query params: limit (optional), sort (optional)
  */
-app.get('/api/admin/patrols', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/admin/patrols', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const limit = sanitizeLimit(req.query.limit, 50);
@@ -2379,7 +2485,7 @@ app.get('/api/admin/patrols', verifyTokenMiddleware, async (req, res) => {
  * GET /api/admin/locations
  * Get all locations for the admin's organization
  */
-app.get('/api/admin/locations', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/admin/locations', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
 
@@ -2410,7 +2516,7 @@ app.get('/api/admin/locations', verifyTokenMiddleware, async (req, res) => {
  * Create a location for the admin's organization
  * Body: { name, assigned_areas? }
  */
-app.post('/api/admin/locations', verifyTokenMiddleware, async (req, res) => {
+app.post('/api/admin/locations', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { name, assigned_areas } = req.body || {};
@@ -2460,7 +2566,7 @@ app.post('/api/admin/locations', verifyTokenMiddleware, async (req, res) => {
  * Update a location for the admin's organization
  * Body: { name?, assigned_areas? }
  */
-app.patch('/api/admin/locations/:id', verifyTokenMiddleware, async (req, res) => {
+app.patch('/api/admin/locations/:id', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { id } = req.params;
@@ -2529,7 +2635,7 @@ app.patch('/api/admin/locations/:id', verifyTokenMiddleware, async (req, res) =>
  * DELETE /api/admin/locations/:id
  * Delete a location for the admin's organization
  */
-app.delete('/api/admin/locations/:id', verifyTokenMiddleware, async (req, res) => {
+app.delete('/api/admin/locations/:id', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { id } = req.params;
@@ -2662,14 +2768,14 @@ const getAdminLogsHandler = async (req, res) => {
  * Get all logs for the admin's organization
  * Query params: limit (optional), sort (optional)
  */
-app.get('/api/admin/logs', verifyTokenMiddleware, getAdminLogsHandler);
+app.get('/api/admin/logs', verifyTokenMiddleware, requireRole('admin'), getAdminLogsHandler);
 
 /**
  * GET /api/admin/notifications
  * Build admin notification feed from logs, assignments, and patrol state.
  * Query params: limit (optional)
  */
-app.get('/api/admin/notifications', verifyTokenMiddleware, async (req, res) => {
+app.get('/api/admin/notifications', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const limit = sanitizeLimit(req.query.limit, 100);
@@ -2714,22 +2820,23 @@ const normalizeMapValue = (value) => {
  * Create a new patrol
  * Body: { start_time, user_id, organization_id, duration?, end_time?, map? }
  */
-app.post('/api/patrols', verifyTokenMiddleware, async (req, res) => {
+app.post('/api/patrols', patrolLimiter, verifyTokenMiddleware, async (req, res) => {
   try {
-    const { start_time, user_id, organization_id, duration, end_time, map, location_data } = req.body || {};
+    const { start_time, organization_id, duration, end_time, map, location_data } = req.body || {};
+    const userId = req.user.id;
 
     // Validate required fields
-    if (!start_time || !user_id) {
+    if (!start_time) {
       return res.status(400).json({
         error: 'Validation Error',
-        message: 'start_time and user_id are required'
+        message: 'start_time is required'
       });
     }
 
     // Create patrol in Directus
     const patrolData = {
       start_time,
-      user_id,
+      user_id: userId,
       organization_id: organization_id || null,
       duration: typeof duration === 'number' ? duration : null,
       end_time: end_time || null,
@@ -2760,10 +2867,9 @@ app.post('/api/patrols', verifyTokenMiddleware, async (req, res) => {
  * Update a patrol (e.g., end time, location data)
  * Body: { duration?, start_time?, end_time?, map?, location_data?, status? }
  */
-app.patch('/api/patrols/:id', verifyTokenMiddleware, async (req, res) => {
+app.patch('/api/patrols/:id', patrolLimiter, verifyTokenMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    // console.log("Param id:", id)
     const {
       duration,
       end_time,
@@ -2779,8 +2885,6 @@ app.patch('/api/patrols/:id', verifyTokenMiddleware, async (req, res) => {
     } catch (fetchPatrolError) {
       console.error(`Error fetching patrol ${id} before update:`, fetchPatrolError);
     }
-
-    // console.log("Data body:", req.body)
 
     // Build update data - use 'map' field as per Directus collection schema
     const updateData = {};
@@ -2940,7 +3044,7 @@ app.patch('/api/patrols/:id', verifyTokenMiddleware, async (req, res) => {
  * Update patrol location incrementally by inserting new points into the gps_points table.
  * Body: { location_data: [{ latitude, longitude, timestamp }, ...] }
  */
-app.patch('/api/patrols/:id/location', verifyTokenMiddleware, async (req, res) => {
+app.patch('/api/patrols/:id/location', locationLimiter, verifyTokenMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { location_data } = req.body || {};
@@ -2966,7 +3070,7 @@ app.patch('/api/patrols/:id/location', verifyTokenMiddleware, async (req, res) =
         ts = new Date(Number(ts)).toISOString();
       }
 
-      if (!isNaN(lat) && !isNaN(lng)) {
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
         values.push(`($${paramCounter}, $${paramCounter + 1}, $${paramCounter + 2}, $${paramCounter + 3})`);
         params.push(id, lat, lng, ts);
         paramCounter += 4;
@@ -3035,13 +3139,11 @@ app.get('/api/logs', verifyTokenMiddleware, async (req, res) => {
  * Create a new log entry
  * Body: { title, description, category, images?, patrol_id? }
  */
-app.post('/api/logs', verifyTokenMiddleware, async (req, res) => {
+app.post('/api/logs', logLimiter, verifyTokenMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
     const inviteCode = req.user.invite_code;
     const { title, description, category, images, patrol_id } = req.body || {};
-
-    // console.log("Body:", req.body)
 
     // Validate required fields
     if (!title || !description || !category) {
@@ -3058,6 +3160,27 @@ app.post('/api/logs', verifyTokenMiddleware, async (req, res) => {
         error: 'Validation Error',
         message: 'category must be one of: activity, unusual, incident, checkpoint, other'
       });
+    }
+
+    // Validate images if provided
+    if (images) {
+      const imagesArray = Array.isArray(images) ? images : [images];
+      const validImageHeaders = ['/9j/', 'iVBOR', 'R0lGOD', 'Qk0', 'SUkq']; // JPEG, PNG, GIF, BMP, TIFF
+      for (const img of imagesArray) {
+        if (typeof img !== 'string' || img.length > 5 * 1024 * 1024) {
+          return res.status(400).json({
+            error: 'Validation Error',
+            message: 'Invalid image: each image must be a base64 string under 5MB'
+          });
+        }
+        const header = img.substring(0, 5);
+        if (!validImageHeaders.some(h => header.startsWith(h))) {
+          return res.status(400).json({
+            error: 'Validation Error',
+            message: 'Invalid image format: only JPEG, PNG, GIF, BMP, TIFF allowed'
+          });
+        }
+      }
     }
 
     // Create log in Directus
@@ -3189,6 +3312,9 @@ const ensureTables = async () => {
     await pool.query(`
       ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
     `).catch(() => {}); // index may already exist
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_session_expire ON "session" ("expire")
+    `).catch((err) => console.error('Failed to create session expire index:', err));
     console.log('Session table ensured');
   } catch (err) {
     console.error('Failed to create session table:', err);
