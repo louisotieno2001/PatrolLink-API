@@ -120,6 +120,17 @@ const locationLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const checkpointLateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 checkpoint-late notifications per 15 minutes
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many requests, please slow down'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
@@ -280,6 +291,7 @@ const ADMIN_NOTIFICATION_TYPE = {
   GUARD_LOGGED_OUT_ON_PATROL: 'guard_logged_out_on_patrol',
   PATROL_ENDED_EARLY: 'patrol_ended_early',
   PATROL_NOT_ENDED_AFTER_SHIFT: 'patrol_not_ended_after_shift',
+  CHECKPOINT_LATE: 'checkpoint_late',
 };
 
 const safeDate = (value) => {
@@ -3231,6 +3243,51 @@ app.post('/api/logs', logLimiter, verifyTokenMiddleware, async (req, res) => {
       error: 'Internal Server Error',
       message: 'Failed to create log'
     });
+  }
+});
+
+// ============================================
+// Checkpoint late notification (called by guard client)
+// ============================================
+app.post('/api/checkpoint/late', checkpointLateLimiter, verifyTokenMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const inviteCode = req.user.invite_code;
+    const { minutes_since_last_scan, patrol_id } = req.body || {};
+
+    const mins = Number(minutes_since_last_scan);
+    if (!Number.isFinite(mins) || mins < 30) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'minutes_since_last_scan must be a number >= 30',
+      });
+    }
+
+    const guardName = `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || 'Guard';
+
+    // Use patrol_id in eventKey so server can deduplicate per patrol session
+    const eventKey = `${ADMIN_NOTIFICATION_TYPE.CHECKPOINT_LATE}:${userId}:${patrol_id || 'none'}`;
+
+    await dispatchPushToOrganization({
+      inviteCode,
+      eventType: ADMIN_NOTIFICATION_TYPE.CHECKPOINT_LATE,
+      eventKey,
+      title: `${guardName} missed a checkpoint scan`,
+      body: `No checkpoint scanned for ${Math.floor(mins)} minutes (over 30 min threshold).`,
+      data: {
+        type: ADMIN_NOTIFICATION_TYPE.CHECKPOINT_LATE,
+        guard_id: userId,
+        guard_name: guardName,
+        patrol_id: patrol_id || null,
+        minutes_since_last_scan: mins,
+      },
+      priority: 'high',
+    });
+
+    res.status(200).json({ message: 'Supervisor notified' });
+  } catch (error) {
+    console.error('Error dispatching checkpoint late notification:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
