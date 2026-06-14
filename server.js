@@ -138,15 +138,19 @@ app.set('view engine', 'ejs');
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true, limit: '5mb' }));
 app.use(bodyParser.json({ limit: '5mb' }));
-app.use(cors({
-  origin: (origin, callback) => {
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    // Allow requests from mobile apps without Origin header if they include a valid auth token
-    if (!origin && req.headers.authorization) return callback(null, true);
-    return callback(new Error(`CORS blocked for origin: ${origin}`));
-  },
-  credentials: true,
-}));
+app.use((req, res, next) => {
+  cors({
+    origin: (origin, callback) => {
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Allow requests from mobile apps without Origin header if they include a valid auth token
+      // or if it's an auth-related request (which won't have a token yet)
+      const isAuthPath = req.path === '/api/login' || req.path === '/api/register';
+      if (!origin && (req.headers.authorization || isAuthPath)) return callback(null, true);
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+  })(req, res, next);
+});
 
 const SESSION_SECRET = process.env.SESSION_SECRET || 'sqT_d_qxWqHyXS6Yk7Me8APygz3EjFE8';
 
