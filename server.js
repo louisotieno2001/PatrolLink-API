@@ -874,8 +874,9 @@ const isValidRedirect = (target) => {
  */
 const requireAuth = (req, res, next) => {
   if (req.session && req.session.user) {
-    if (req.session.user.role !== 'admin') {
-      return res.status(403).send('Access denied. Admin privileges required.');
+    const allowedRoles = ['admin', 'supervisor'];
+    if (!allowedRoles.includes(req.session.user.role)) {
+      return res.status(403).send('Access denied. Admin or Supervisor privileges required.');
     }
     next();
   } else {
@@ -1513,7 +1514,7 @@ app.get('/admin/dashboard', requireAuth, async (req, res) => {
  * Dashboard summary as JSON (token auth, used by mobile/api)
  * Optional ?org_id=xxx to scope data to a single organization
  */
-app.get('/api/admin/dashboard', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/dashboard', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const orgId = req.query.org_id || null;
     const data = await buildDashboardSummary(orgId);
@@ -1528,7 +1529,7 @@ app.get('/api/admin/dashboard', verifyTokenMiddleware, requireRole('admin'), asy
  * GET /api/admin/dashboard/payments/:orgId
  * Payment history for a specific organization
  */
-app.get('/api/admin/dashboard/payments/:orgId', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/dashboard/payments/:orgId', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const { orgId } = req.params;
     const result = await pool.query(
@@ -1546,7 +1547,7 @@ app.get('/api/admin/dashboard/payments/:orgId', verifyTokenMiddleware, requireRo
  * POST /api/admin/dashboard/payments/:id/mark-paid
  * Mark a subscription payment as paid (uses pool.query to bypass Directus permission limits)
  */
-app.post('/api/admin/dashboard/payments/:id/mark-paid', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.post('/api/admin/dashboard/payments/:id/mark-paid', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const paymentId = req.params.id;
     const { amount_paid, paid_at, payment_method } = req.body || {};
@@ -1567,7 +1568,7 @@ app.post('/api/admin/dashboard/payments/:id/mark-paid', verifyTokenMiddleware, r
  * POST /api/admin/dashboard/organizations/:id/generate-payments
  * Auto-generate missing monthly payment records for an organization
  */
-app.post('/api/admin/dashboard/organizations/:id/generate-payments', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.post('/api/admin/dashboard/organizations/:id/generate-payments', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const orgId = req.params.id;
     const orgResult = await pool.query('SELECT * FROM organizations WHERE id = $1', [orgId]);
@@ -1617,7 +1618,7 @@ app.post('/api/admin/dashboard/organizations/:id/generate-payments', verifyToken
  * POST /api/admin/dashboard/generate-all-payments
  * Generate missing payment records for ALL organizations (batch)
  */
-app.post('/api/admin/dashboard/generate-all-payments', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.post('/api/admin/dashboard/generate-all-payments', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const orgsResult = await pool.query('SELECT * FROM organizations');
     const orgs = orgsResult.rows || [];
@@ -1668,7 +1669,7 @@ app.post('/api/admin/dashboard/generate-all-payments', verifyTokenMiddleware, re
  * List all guards with contact info, assignments, and patrol status
  * Optional ?org_id=xxx to scope to a single organization (by invite_code)
  */
-app.get('/api/admin/dashboard/guards', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/dashboard/guards', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const orgId = req.query.org_id || null;
     let inviteCode = null;
@@ -1731,7 +1732,7 @@ app.get('/api/admin/dashboard/guards', verifyTokenMiddleware, requireRole('admin
  * List all supervisors with masked phone (toggleable)
  * Optional ?org_id=xxx to scope to a single organization (by invite_code)
  */
-app.get('/api/admin/dashboard/supervisors', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/dashboard/supervisors', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const orgId = req.query.org_id || null;
     let inviteCode = null;
@@ -1767,7 +1768,7 @@ app.get('/api/admin/dashboard/supervisors', verifyTokenMiddleware, requireRole('
  * GET /api/admin/dashboard/search?q=<query>
  * Search organizations by name
  */
-app.get('/api/admin/dashboard/search', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/dashboard/search', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     if (!q) return res.json({ organizations: [] });
@@ -1787,7 +1788,7 @@ app.get('/api/admin/dashboard/search', verifyTokenMiddleware, requireRole('admin
  * GET /api/admin/dashboard/organizations
  * List all organizations (for sidebar/search dropdown)
  */
-app.get('/api/admin/dashboard/organizations', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/dashboard/organizations', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT id, name, invite_code, subscription_tier, subscription_status, monthly_rate FROM organizations ORDER BY name'
@@ -1981,7 +1982,7 @@ app.use((err, req, res, next) => {
 // ============================================
 // GET ORGANIZATIONS INVITE CODES
 // ============================================
-app.get('/api/organizations/invite-codes', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/organizations/invite-codes', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const response = await query('/items/organizations?fields=invite_code');
     const inviteCodes = response.data.data.map(org => org.invite_code);
@@ -2097,7 +2098,7 @@ app.get('/api/patrols', verifyTokenMiddleware, async (req, res) => {
  * Get all guards for the admin's organization
  * Requires authentication and returns guards with matching invite_code
  */
-app.get('/api/admin/guards', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/guards', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
 
@@ -2217,7 +2218,7 @@ app.get('/api/admin/guards', verifyTokenMiddleware, requireRole('admin'), async 
  * Create a new assignment for a guard in the admin's organization
  * Body: { user_id, location, assigned_areas, start_time, end_time }
  */
-app.post('/api/admin/assignments', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.post('/api/admin/assignments', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { user_id, location, assigned_areas, start_time, end_time } = req.body || {};
@@ -2291,7 +2292,7 @@ app.post('/api/admin/assignments', verifyTokenMiddleware, requireRole('admin'), 
  * DELETE /api/admin/guards/:id
  * Remove a guard from the admin's organization and cascade-delete related data.
  */
-app.delete('/api/admin/guards/:id', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.delete('/api/admin/guards/:id', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { id } = req.params;
@@ -2372,7 +2373,7 @@ app.delete('/api/admin/guards/:id', verifyTokenMiddleware, requireRole('admin'),
  * Get all patrols for the admin's organization
  * Query params: limit (optional), sort (optional)
  */
-app.get('/api/admin/patrols', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/patrols', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const limit = sanitizeLimit(req.query.limit, 50);
@@ -2501,7 +2502,7 @@ app.get('/api/admin/patrols', verifyTokenMiddleware, requireRole('admin'), async
  * GET /api/admin/locations
  * Get all locations for the admin's organization
  */
-app.get('/api/admin/locations', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/locations', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
 
@@ -2532,7 +2533,7 @@ app.get('/api/admin/locations', verifyTokenMiddleware, requireRole('admin'), asy
  * Create a location for the admin's organization
  * Body: { name, assigned_areas? }
  */
-app.post('/api/admin/locations', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.post('/api/admin/locations', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { name, assigned_areas, latitude, longitude } = req.body || {};
@@ -2597,7 +2598,7 @@ app.post('/api/admin/locations', verifyTokenMiddleware, requireRole('admin'), as
  * Update a location for the admin's organization
  * Body: { name?, assigned_areas? }
  */
-app.patch('/api/admin/locations/:id', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.patch('/api/admin/locations/:id', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { id } = req.params;
@@ -2684,7 +2685,7 @@ app.patch('/api/admin/locations/:id', verifyTokenMiddleware, requireRole('admin'
  * DELETE /api/admin/locations/:id
  * Delete a location for the admin's organization
  */
-app.delete('/api/admin/locations/:id', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.delete('/api/admin/locations/:id', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { id } = req.params;
@@ -2817,14 +2818,14 @@ const getAdminLogsHandler = async (req, res) => {
  * Get all logs for the admin's organization
  * Query params: limit (optional), sort (optional)
  */
-app.get('/api/admin/logs', verifyTokenMiddleware, requireRole('admin'), getAdminLogsHandler);
+app.get('/api/admin/logs', verifyTokenMiddleware, requireRole('admin', 'supervisor'), getAdminLogsHandler);
 
 /**
  * GET /api/admin/notifications
  * Build admin notification feed from logs, assignments, and patrol state.
  * Query params: limit (optional)
  */
-app.get('/api/admin/notifications', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
+app.get('/api/admin/notifications', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const limit = sanitizeLimit(req.query.limit, 100);
