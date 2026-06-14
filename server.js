@@ -2531,7 +2531,7 @@ app.get('/api/admin/locations', verifyTokenMiddleware, requireRole('admin'), asy
 app.post('/api/admin/locations', verifyTokenMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
-    const { name, assigned_areas } = req.body || {};
+    const { name, assigned_areas, latitude, longitude } = req.body || {};
 
     if (!inviteCode) {
       return res.status(400).json({
@@ -2547,10 +2547,25 @@ app.post('/api/admin/locations', verifyTokenMiddleware, requireRole('admin'), as
       });
     }
 
+    let lat = null;
+    let lng = null;
+    if (latitude != null && longitude != null) {
+      lat = Number(latitude);
+      lng = Number(longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: 'Invalid coordinates. Latitude must be -90 to 90, longitude -180 to 180.',
+        });
+      }
+    }
+
     const locationData = {
       name: String(name).trim(),
       assigned_areas: assigned_areas ? String(assigned_areas).trim() : '',
       organization: inviteCode,
+      latitude: lat,
+      longitude: lng,
     };
 
     const response = await query('/items/locations', {
@@ -2582,7 +2597,7 @@ app.patch('/api/admin/locations/:id', verifyTokenMiddleware, requireRole('admin'
   try {
     const inviteCode = req.user.invite_code;
     const { id } = req.params;
-    const { name, assigned_areas } = req.body || {};
+    const { name, assigned_areas, latitude, longitude } = req.body || {};
 
     if (!inviteCode) {
       return res.status(400).json({
@@ -2614,6 +2629,24 @@ app.patch('/api/admin/locations/:id', verifyTokenMiddleware, requireRole('admin'
     }
     if (assigned_areas !== undefined) {
       updateData.assigned_areas = String(assigned_areas).trim();
+    }
+    if (latitude !== undefined || longitude !== undefined) {
+      const lat = latitude !== undefined ? Number(latitude) : (existingLocation.latitude != null ? Number(existingLocation.latitude) : null);
+      const lng = longitude !== undefined ? Number(longitude) : (existingLocation.longitude != null ? Number(existingLocation.longitude) : null);
+      if (lat != null && lng != null) {
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          return res.status(400).json({
+            error: 'Validation Error',
+            message: 'Invalid coordinates. Latitude must be -90 to 90, longitude -180 to 180.',
+          });
+        }
+        updateData.latitude = lat;
+        updateData.longitude = lng;
+      } else if (latitude === null || longitude === null) {
+        // Explicitly clear coordinates
+        updateData.latitude = null;
+        updateData.longitude = null;
+      }
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -2828,13 +2861,30 @@ const normalizeMapValue = (value) => {
 };
 
 /**
+ * Haversine distance in meters between two (lat, lng) points
+ */
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const GEOFENCE_RADIUS_METERS = 1000;
+
+/**
  * POST /api/patrols
  * Create a new patrol
- * Body: { start_time, user_id, organization_id, duration?, end_time?, map? }
+ * Body: { start_time, user_id, organization_id, duration?, end_time?, map?,
+ *         current_latitude?, current_longitude? }
  */
 app.post('/api/patrols', patrolLimiter, verifyTokenMiddleware, async (req, res) => {
   try {
-    const { start_time, organization_id, duration, end_time, map, location_data } = req.body || {};
+    const { start_time, organization_id, duration, end_time, map, location_data, current_latitude, current_longitude } = req.body || {};
     const userId = req.user.id;
 
     // Validate required fields
@@ -2844,6 +2894,46 @@ app.post('/api/patrols', patrolLimiter, verifyTokenMiddleware, async (req, res) 
         message: 'start_time is required'
       });
     }
+
+    // ---- Geofence check ----
+    const guardLat = current_latitude != null ? Number(current_latitude) : NaN;
+    const guardLng = current_longitude != null ? Number(current_longitude) : NaN;
+    const hasValidLocation = current_latitude != null && current_longitude != null
+      && Number.isFinite(guardLat) && Number.isFinite(guardLng)
+      && guardLat >= -90 && guardLat <= 90 && guardLng >= -180 && guardLng <= 180;
+
+    if (hasValidLocation) {
+      // Fetch the guard's assignment to find their assigned location
+      const assignmentResp = await query(`/items/assignments?filter[user_id][_eq]=${userId}&limit=1`);
+      const assignment = (assignmentResp.data.data || [])[0];
+
+      if (assignment && assignment.location) {
+        const locResp = await query(`/items/locations/${assignment.location}`);
+        const locationRecord = locResp.data.data;
+
+        if (locationRecord && locationRecord.latitude != null && locationRecord.longitude != null) {
+          const locLat = Number(locationRecord.latitude);
+          const locLng = Number(locationRecord.longitude);
+
+          if (Number.isFinite(locLat) && Number.isFinite(locLng)) {
+            const distance = haversineMeters(guardLat, guardLng, locLat, locLng);
+
+            if (distance > GEOFENCE_RADIUS_METERS) {
+              return res.status(403).json({
+                error: 'Geofence Violation',
+                message: `You are ${Math.round(distance)}m from your assigned location "${locationRecord.name || 'Unknown'}". You must be within ${GEOFENCE_RADIUS_METERS / 1000} km to start a patrol.`,
+                distance_meters: Math.round(distance),
+                location_name: locationRecord.name || 'Unknown',
+              });
+            }
+          }
+        }
+        // If location has no lat/lng, skip check (graceful fallback)
+      }
+      // If no assignment found, skip geofence check (guard can still patrol)
+    }
+    // If guard didn't send location, skip geofence check
+    // ---- end geofence check ----
 
     // Create patrol in Directus
     const patrolData = {

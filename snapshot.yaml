@@ -1525,6 +1525,84 @@ fields:
       has_auto_increment: false
       foreign_key_table: null
       foreign_key_column: null
+  - collection: locations
+    field: latitude
+    type: decimal
+    meta:
+      collection: locations
+      conditions: null
+      display: null
+      display_options: null
+      field: latitude
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: 7
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: latitude
+      table: locations
+      data_type: numeric
+      default_value: null
+      max_length: null
+      numeric_precision: 10
+      numeric_scale: 7
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: locations
+    field: longitude
+    type: decimal
+    meta:
+      collection: locations
+      conditions: null
+      display: null
+      display_options: null
+      field: longitude
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      sort: 8
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: half
+    schema:
+      name: longitude
+      table: locations
+      data_type: numeric
+      default_value: null
+      max_length: null
+      numeric_precision: 10
+      numeric_scale: 7
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
   - collection: logs
     field: id
     type: uuid
