@@ -1152,7 +1152,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     }
 
     // Find user in Directus by phone
-    const queryUrl = `/items/users?filter[phone][_eq]=${encodeURIComponent(phone)}`;
+    const queryUrl = `/items/users?filter[phone][_eq]=${encodeURIComponent(phone)}&fields=*,suspended`;
     const users = await query(queryUrl);
 
     if (!users.data.data || users.data.data.length === 0) {
@@ -1170,6 +1170,15 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ 
         error: 'Unauthorized', 
         message: 'Invalid phone number or password' 
+      });
+    }
+
+    // Check if user is suspended
+    if (user.suspended === true) {
+      return res.status(403).json({
+        error: 'Account Suspended',
+        code: 'USER_SUSPENDED',
+        message: 'Your account has been suspended. Please contact your administrator to reactivate your account.',
       });
     }
 

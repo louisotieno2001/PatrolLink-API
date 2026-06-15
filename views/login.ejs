@@ -288,6 +288,20 @@
     </div>
   </div>
 
+  <!-- Account Suspended Modal -->
+  <div class="modal-overlay" id="suspendedModalOverlay">
+    <div class="modal">
+      <div class="modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <h2>Account Suspended</h2>
+      <p>Your account has been suspended. Please contact your administrator to reactivate your account.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="closeSuspendedModalBtn">OK</button>
+      </div>
+    </div>
+  </div>
+
   <style>
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,.7);
@@ -351,6 +365,8 @@
           window.location.href = returnTo;
         } else if (data.code === 'SUBSCRIPTION_INACTIVE') {
           document.getElementById('subModalOverlay').classList.add('active');
+        } else if (data.code === 'USER_SUSPENDED') {
+          document.getElementById('suspendedModalOverlay').classList.add('active');
         } else {
           errorBox.textContent = data.message || 'Login failed';
           errorBox.style.display = 'block';
@@ -362,6 +378,12 @@
     });
     document.getElementById('subViewPlansBtn').addEventListener('click', () => {
       window.location.href = '/paywall';
+    });
+    document.getElementById('closeSuspendedModalBtn').addEventListener('click', () => {
+      document.getElementById('suspendedModalOverlay').classList.remove('active');
+    });
+    document.getElementById('suspendedModalOverlay').addEventListener('click', e => {
+      if (e.target === e.currentTarget) document.getElementById('suspendedModalOverlay').classList.remove('active');
     });
   </script>
 </body>
