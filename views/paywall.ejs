@@ -3,257 +3,361 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Subscription Plans - PatrolLink</title>
+  <title>Pricing - PatrolLink</title>
   <link rel="icon" href="/images/logo.png" type="image/x-icon">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      background: #0f172a;
       color: #e2e8f0;
       line-height: 1.6;
       min-height: 100vh;
-      padding: 60px 20px;
+      padding: 40px 20px 60px;
     }
-    .container { max-width: 900px; margin: 0 auto; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .logo-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 48px;
+    }
+    .logo-bar img {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+    }
+    .logo-bar span {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.3px;
+    }
     header {
       text-align: center;
-      margin-bottom: 60px;
+      margin-bottom: 40px;
     }
-    h1 {
+    header h1 {
       font-size: 2.5rem;
       color: #fff;
-      margin-bottom: 15px;
+      font-weight: 800;
+      margin-bottom: 12px;
     }
-    .subtitle {
-      color: #94a3b8;
+    header p {
+      color: #64748b;
       font-size: 1.1rem;
-      max-width: 600px;
-      margin: 0 auto;
+    }
+    .billing-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 4px;
+      margin: 0 auto 48px;
+      width: fit-content;
+    }
+    .billing-toggle button {
+      background: none;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 9px;
+      color: #94a3b8;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .billing-toggle button:hover { color: #e2e8f0; }
+    .billing-toggle button.active {
+      background: #2563eb;
+      color: #fff;
     }
     .pricing-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 30px;
-      margin-bottom: 50px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-bottom: 48px;
     }
     .pricing-card {
       background: #1e293b;
-      border-radius: 20px;
-      padding: 40px;
       border: 1px solid #334155;
-      position: relative;
-      transition: transform 0.3s;
+      border-radius: 16px;
+      padding: 32px 24px;
       display: flex;
       flex-direction: column;
+      position: relative;
+      transition: border-color 0.2s;
     }
-    .pricing-card:hover {
-      transform: translateY(-10px);
-      border-color: #2563eb;
-    }
+    .pricing-card:hover { border-color: #475569; }
     .pricing-card.popular {
       border-color: #2563eb;
-      background: #1e293b;
-      box-shadow: 0 10px 40px rgba(37, 99, 235, 0.1);
+      box-shadow: 0 0 0 1px #2563eb;
     }
     .popular-badge {
       position: absolute;
-      top: -15px;
-      right: 20px;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
       background: #2563eb;
       color: #fff;
-      padding: 5px 15px;
+      padding: 4px 14px;
       border-radius: 20px;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       font-weight: 700;
+      white-space: nowrap;
+    }
+    .plan-guards {
+      font-size: 0.85rem;
+      color: #64748b;
+      font-weight: 500;
+      margin-bottom: 4px;
     }
     .plan-name {
-      font-size: 1.2rem;
-      color: #94a3b8;
-      font-weight: 600;
-      margin-bottom: 10px;
-    }
-    .price {
-      font-size: 3rem;
+      font-size: 1.5rem;
       color: #fff;
-      font-weight: 800;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .price-display {
       margin-bottom: 20px;
     }
-    .price span {
-      font-size: 1rem;
-      color: #94a3b8;
-      font-weight: 400;
+    .price-display .price {
+      font-size: 2.5rem;
+      color: #fff;
+      font-weight: 800;
+    }
+    .price-display .period {
+      font-size: 0.9rem;
+      color: #64748b;
+    }
+    .price-display .savings {
+      font-size: 0.8rem;
+      color: #22c55e;
+      margin-top: 2px;
     }
     .features-list {
       list-style: none;
-      margin-bottom: 30px;
+      margin-bottom: 24px;
       flex-grow: 1;
     }
     .features-list li {
-      margin-bottom: 12px;
       display: flex;
       align-items: center;
+      gap: 10px;
       color: #cbd5e1;
+      font-size: 0.88rem;
+      margin-bottom: 10px;
     }
-    .features-list li::before {
-      content: '✓';
-      color: #22c55e;
-      margin-right: 10px;
-      font-weight: bold;
+    .features-list li svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
     }
     .btn {
       display: block;
       text-align: center;
-      background: #2563eb;
-      color: #fff;
-      padding: 16px;
-      border-radius: 12px;
+      padding: 14px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
       text-decoration: none;
-      font-weight: 700;
+      cursor: pointer;
+      border: none;
       transition: background 0.2s;
     }
-    .btn:hover {
-      background: #1d4ed8;
+    .btn-primary {
+      background: #2563eb;
+      color: #fff;
     }
-    .btn-outline {
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-secondary {
       background: transparent;
-      border: 2px solid #334155;
+      color: #e2e8f0;
+      border: 1.5px solid #334155;
     }
-    .btn-outline:hover {
-      border-color: #60a5fa;
-      background: rgba(96, 165, 250, 0.05);
+    .btn-secondary:hover { border-color: #60a5fa; }
+    .btn-popular {
+      background: #2563eb;
+      color: #fff;
     }
-    .footer-note {
-      text-align: center;
+    .btn-popular:hover { background: #1d4ed8; }
+    .footer-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .footer-actions a {
       color: #64748b;
       font-size: 0.9rem;
-    }
-    .back-link {
-      display: block;
-      text-align: center;
-      margin-top: 30px;
-      color: #94a3b8;
       text-decoration: none;
+      transition: color 0.2s;
     }
-    .back-link:hover { color: #fff; }
-    .skip-container {
-      text-align: right;
-      margin-bottom: 20px;
+    .footer-actions a:hover { color: #94a3b8; }
+    .guarantee {
+      text-align: center;
+      color: #475569;
+      font-size: 0.85rem;
     }
-    .skip-top-link {
-      margin-top: 0;
-      display: inline-block;
-      font-size: 0.95rem;
-      font-weight: 500;
-      color: #3b82f6;
+    @media (max-width: 900px) {
+      .pricing-grid { grid-template-columns: repeat(2, 1fr); }
     }
-    .skip-top-link:hover {
-      color: #60a5fa;
-      text-decoration: underline;
+    @media (max-width: 560px) {
+      .pricing-grid { grid-template-columns: 1fr; }
+      header h1 { font-size: 1.75rem; }
+      .billing-toggle button { padding: 8px 14px; font-size: 0.82rem; }
     }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="logo-bar">
+      <img src="/images/logo.png" alt="PatrolLink">
+      <span>PatrolLink</span>
+    </div>
+
     <header>
-      <h1>Choose Your Plan</h1>
-      <p class="subtitle">Get full access to the PatrolLink API, documentation, and real-time monitoring dashboard.</p>
+      <h1>Pick your plan</h1>
+      <p>Choose the right guard count for your organization.</p>
     </header>
 
-    <div class="skip-container">
-      <a href="/api-endpoints" class="skip-top-link continue-link-dynamic">Skip for now &rarr;</a>
+    <div class="billing-toggle" id="billingToggle">
+      <button type="button" data-period="monthly" class="active">Monthly</button>
+      <button type="button" data-period="quarterly">Quarterly</button>
+      <button type="button" data-period="semiannual">6 Months</button>
+      <button type="button" data-period="yearly">Yearly</button>
     </div>
 
-    <div class="pricing-grid">
-      <!-- Monthly Plan -->
-      <div class="pricing-card">
-        <div class="plan-name">Monthly</div>
-        <div class="price">KES 15,000<span>/mo</span></div>
+    <div class="pricing-grid" id="pricingGrid">
+      <div class="pricing-card" data-guards="20">
+        <div class="plan-guards">Up to 20 guards</div>
+        <div class="plan-name">Starter</div>
+        <div class="price-display">
+          <div class="price" data-monthly="4,500" data-quarterly="12,000" data-semiannual="22,500" data-yearly="42,000">4,500</div>
+          <div class="period">per month</div>
+        </div>
         <ul class="features-list">
-          <li>Full API Access</li>
-          <li>Unlimited Security Guards</li>
-          <li>Real-time Dashboard</li>
-          <li>Email Support</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Up to 20 security guards</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Real-time guard tracking</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Shift management</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Incident reporting</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Email support</li>
         </ul>
-        <a href="#" class="btn btn-outline" onclick="selectPlan('monthly')">Choose Monthly</a>
+        <button type="button" class="btn btn-secondary select-plan" data-plan="starter">Choose plan</button>
       </div>
 
-      <!-- Quarterly Plan -->
-      <div class="pricing-card">
-        <div class="plan-name">Quarterly (3 Mo)</div>
-        <div class="price">KES 44,500<span>/term</span></div>
+      <div class="pricing-card" data-guards="50">
+        <div class="plan-guards">Up to 50 guards</div>
+        <div class="plan-name">Growth</div>
+        <div class="price-display">
+          <div class="price" data-monthly="8,500" data-quarterly="22,500" data-semiannual="42,000" data-yearly="80,000">8,500</div>
+          <div class="period">per month</div>
+        </div>
         <ul class="features-list">
-          <li>Everything in Monthly</li>
-          <li>Unlimited Security Guards</li>
-          <li>Priority Email Support</li>
-          <li>10% Savings</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Up to 50 security guards</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Everything in Starter</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Analytics dashboard</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Patrol reports</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Priority email support</li>
         </ul>
-        <a href="#" class="btn btn-outline" onclick="selectPlan('quarterly')">Choose Quarterly</a>
+        <button type="button" class="btn btn-secondary select-plan" data-plan="growth">Choose plan</button>
       </div>
 
-      <!-- 6 Months Plan -->
-      <div class="pricing-card">
-        <div class="plan-name">Bi-Annual (6 Mo)</div>
-        <div class="price">KES 89,500<span>/term</span></div>
+      <div class="pricing-card popular" data-guards="100">
+        <div class="popular-badge">POPULAR</div>
+        <div class="plan-guards">Up to 100 guards</div>
+        <div class="plan-name">Business</div>
+        <div class="price-display">
+          <div class="price" data-monthly="15,000" data-quarterly="40,000" data-semiannual="75,000" data-yearly="140,000">15,000</div>
+          <div class="period">per month</div>
+        </div>
         <ul class="features-list">
-          <li>Everything in Quarterly</li>
-          <li>Unlimited Security Guards</li>
-          <li>WhatsApp Support</li>
-          <li>15% Savings</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Up to 100 security guards</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Everything in Growth</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> WhatsApp support</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Custom reports</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> API access</li>
         </ul>
-        <a href="#" class="btn btn-outline" onclick="selectPlan('biannual')">Choose 6 Months</a>
+        <button type="button" class="btn btn-popular select-plan" data-plan="business">Choose plan</button>
       </div>
 
-      <!-- Yearly Plan -->
-      <div class="pricing-card popular">
-        <div class="popular-badge">BEST VALUE</div>
-        <div class="plan-name">Yearly</div>
-        <div class="price">KES 175,500<span>/yr</span></div>
+      <div class="pricing-card" data-guards="unlimited">
+        <div class="plan-guards">Unlimited guards</div>
+        <div class="plan-name">Enterprise</div>
+        <div class="price-display">
+          <div class="price" data-monthly="25,000" data-quarterly="67,500" data-semiannual="127,500" data-yearly="240,000">25,000</div>
+          <div class="period">per month</div>
+        </div>
         <ul class="features-list">
-          <li>Everything in 6 Months</li>
-          <li>Unlimited Security Guards</li>
-          <li>Priority 24/7 Support</li>
-          <li>Advanced Analytics</li>
-          <li>25% Savings</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Unlimited security guards</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Everything in Business</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Priority 24/7 support</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Advanced analytics</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Dedicated account manager</li>
         </ul>
-        <a href="#" class="btn" onclick="selectPlan('yearly')">Choose Yearly</a>
+        <button type="button" class="btn btn-secondary select-plan" data-plan="enterprise">Choose plan</button>
       </div>
     </div>
 
-    <div class="footer-note">
-      <p>All plans include a 14-day money-back guarantee.</p>
-      <a href="/api-endpoints" class="back-link continue-link-dynamic">Continue to API Endpoints (Demo Mode)</a>
+    <div class="footer-actions">
+      <a href="/api-endpoints" id="skipLink">Skip for now →</a>
+      <a href="/api-endpoints" id="continueLink">Continue to API Endpoints</a>
     </div>
+
+    <div class="guarantee">14-day money-back guarantee. No questions asked.</div>
   </div>
 
   <script>
-    // Handle history recognition for redirection
     const urlParams = new URLSearchParams(window.location.search);
     const rawReturnTo = urlParams.get('returnTo') || '';
-    // Only allow relative paths to prevent open redirect
     const SAFE_PATHS = ['/admin/dashboard', '/api-endpoints', '/documentation', '/paywall', '/login', '/signup'];
     const returnTo = SAFE_PATHS.includes(rawReturnTo) ? rawReturnTo : '/api-endpoints';
-    const dynamicLinks = document.querySelectorAll('.continue-link-dynamic');
-    
-    dynamicLinks.forEach(link => {
-      link.href = returnTo;
-      
-      // Update text specifically for the footer link if it was the original one
-      if (link.classList.contains('back-link')) {
-        if (returnTo.includes('documentation')) {
-          link.textContent = 'Continue to API Documentation (Demo Mode)';
-        } else {
-          link.textContent = 'Continue to API Endpoints (Demo Mode)';
-        }
-      }
+
+    document.getElementById('skipLink').href = returnTo;
+    document.getElementById('continueLink').href = returnTo;
+
+    const periods = ['monthly', 'quarterly', 'semiannual', 'yearly'];
+    const periodLabels = { monthly: 'per month', quarterly: 'per quarter', semiannual: 'per 6 months', yearly: 'per year' };
+    const periodSavings = { monthly: null, quarterly: 'Save 10%', semiannual: 'Save 15%', yearly: 'Save 20%' };
+
+    document.querySelectorAll('#billingToggle button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#billingToggle button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const period = btn.dataset.period;
+
+        document.querySelectorAll('.pricing-card').forEach(card => {
+          const priceEl = card.querySelector('.price');
+          const periodEl = card.querySelector('.period');
+          const savingsEl = card.querySelector('.savings');
+          const price = priceEl.dataset[period];
+          priceEl.textContent = price;
+          periodEl.textContent = periodLabels[period];
+          if (savingsEl) savingsEl.remove();
+          if (periodSavings[period]) {
+            const s = document.createElement('div');
+            s.className = 'savings';
+            s.textContent = periodSavings[period];
+            priceEl.parentNode.appendChild(s);
+          }
+        });
+      });
     });
 
-    function selectPlan(plan) {
-      alert(`You selected the ${plan} plan. Integrating with payment gateway...`);
-      // In a real app, this would redirect to a Stripe checkout session
-      // For now, let's just redirect to the target page
-      window.location.href = returnTo;
-    }
+    document.querySelectorAll('.select-plan').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const plan = btn.dataset.plan;
+        const activePeriod = document.querySelector('#billingToggle .active').dataset.period;
+        alert(`You selected the ${plan} plan (${activePeriod}). Payment integration coming soon.`);
+        window.location.href = returnTo;
+      });
+    });
   </script>
 </body>
 </html>
