@@ -3,211 +3,291 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PatrolLink - Real-time Guard Monitoring System</title>
+  <title>PatrolLink - Security Management Platform</title>
   <link rel="icon" href="/images/logo.png" type="image/x-icon">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
       color: #e2e8f0;
       line-height: 1.6;
-      min-height: 100vh;
+      background: #0f172a;
     }
-    .container { max-width: 1000px; margin: 0 auto; padding: 60px 20px; }
-    header {
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background: url('/images/hero.webp') center center / cover no-repeat;
+    }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(30, 41, 59, 0.5) 50%, rgba(15, 23, 42, 0.75) 100%);
+    }
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 40px 20px;
+      max-width: 720px;
+    }
+    .hero-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+    .hero-logo img {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+    }
+    .hero-logo span {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .hero h1 {
+      font-size: 3.25rem;
+      color: #fff;
+      font-weight: 800;
+      margin-bottom: 16px;
+      line-height: 1.15;
+      letter-spacing: -1px;
+    }
+    .hero h1 span { color: #60a5fa; }
+    .hero p {
+      color: #94a3b8;
+      font-size: 1.2rem;
+      margin-bottom: 36px;
+      max-width: 540px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .hero-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 32px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+    }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-secondary {
+      background: transparent;
+      color: #e2e8f0;
+      border: 1.5px solid #334155;
+    }
+    .btn-secondary:hover { border-color: #60a5fa; color: #fff; }
+    .btn svg { width: 18px; height: 18px; }
+    .hero-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: #22c55e;
+      margin-bottom: 24px;
+    }
+    .hero-status svg { width: 14px; height: 14px; }
+    .section {
+      padding: 100px 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .section-header {
       text-align: center;
       margin-bottom: 60px;
     }
-    .logo {
-      font-size: 4rem;
-      margin-bottom: 20px;
-    }
-    h1 {
-      font-size: 3rem;
+    .section-header h2 {
+      font-size: 2.25rem;
       color: #fff;
-      margin-bottom: 15px;
       font-weight: 700;
+      margin-bottom: 12px;
     }
-    .subtitle {
-      color: #94a3b8;
-      font-size: 1.3rem;
-      margin-bottom: 30px;
+    .section-header p {
+      color: #64748b;
+      font-size: 1.05rem;
+      max-width: 520px;
+      margin: 0 auto;
     }
-    .tagline {
-      color: #60a5fa;
-      font-size: 1.1rem;
-      margin-bottom: 40px;
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
     }
-    .card {
+    .feature-card {
       background: #1e293b;
-      border-radius: 16px;
-      padding: 30px;
-      margin-bottom: 25px;
-      border: 1px solid #334155;
-      transition: transform 0.2s, box-shadow 0.2s;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 32px;
+      transition: border-color 0.2s, transform 0.2s;
     }
-    .card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    .feature-card:hover {
+      border-color: #334155;
+      transform: translateY(-2px);
     }
-    .card-icon {
-      font-size: 2.5rem;
-      margin-bottom: 15px;
+    .feature-card-icon {
+      width: 44px;
+      height: 44px;
+      color: #60a5fa;
+      margin-bottom: 18px;
     }
-    h2 {
+    .feature-card h3 {
       color: #fff;
-      font-size: 1.4rem;
+      font-size: 1.15rem;
+      font-weight: 600;
       margin-bottom: 10px;
     }
-    p { color: #94a3b8; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 25px;
-      margin-bottom: 50px;
-    }
-    .btn {
-      display: inline-block;
-      background: #2563eb;
-      color: #fff;
-      padding: 14px 28px;
-      border-radius: 10px;
-      text-decoration: none;
-      font-weight: 600;
-      margin: 5px;
-      transition: background 0.2s;
-    }
-    .btn:hover { background: #1d4ed8; }
-    .btn-outline {
-      background: transparent;
-      border: 2px solid #334155;
-    }
-    .btn-outline:hover { border-color: #60a5fa; }
-    .section-title {
-      color: #fff;
-      font-size: 2rem;
-      text-align: center;
-      margin-bottom: 40px;
-    }
-    .features {
-      margin-bottom: 50px;
-    }
-    .feature-item {
-      display: flex;
-      align-items: center;
-      padding: 15px 0;
-      border-bottom: 1px solid #334155;
-    }
-    .feature-icon {
-      font-size: 1.5rem;
-      margin-right: 15px;
+    .feature-card p {
+      color: #94a3b8;
+      font-size: 0.92rem;
+      line-height: 1.65;
     }
     footer {
-      text-align: center;
-      padding-top: 40px;
-      border-top: 1px solid #334155;
-      color: #64748b;
+      border-top: 1px solid #1e293b;
+      padding: 48px 20px;
     }
-    .status {
-      display: inline-block;
-      background: #22c55e;
-      color: #000;
-      padding: 4px 12px;
-      border-radius: 20px;
+    .footer-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .footer-links a {
+      color: #64748b;
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: #94a3b8; }
+    footer .copyright {
+      color: #475569;
       font-size: 0.85rem;
-      font-weight: 600;
+    }
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2.25rem; }
+      .hero p { font-size: 1rem; }
+      .hero-logo span { font-size: 1.5rem; }
+      .section { padding: 60px 20px; }
+      .section-header h2 { font-size: 1.75rem; }
+      .features-grid { grid-template-columns: 1fr; }
+      .footer-inner { flex-direction: column; text-align: center; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="logo">🛡️</div>
-      <h1>PatrolLink</h1>
-      <p class="subtitle">Real-time Guard Monitoring & Management System</p>
-      <p class="tagline">Keep your security team connected and accountable</p>
-      <div style="margin-top: 20px;">
-        <span class="status">🚀 API Live</span>
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-logo">
+        <img src="/images/logo.png" alt="PatrolLink">
+        <span>PatrolLink</span>
       </div>
-    </header>
-
-    <div class="grid">
-      <div class="card">
-        <div class="card-icon">📱</div>
-        <h2>Mobile App</h2>
-        <p>React Native & Expo app for guards to check in, report incidents, and receive assignments in real-time.</p>
+      <div class="hero-status">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        API Live
       </div>
-      <div class="card">
-        <div class="card-icon">🔌</div>
-        <h2>RESTful API</h2>
-        <p>Complete backend API built with Express.js and Directus for secure authentication and data management.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">📊</div>
-        <h2>Dashboard</h2>
-        <p>Admin dashboard for supervisors to monitor guard activity, manage shifts, and view reports.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">🔐</div>
-        <h2>Secure Auth</h2>
-        <p>JWT-based authentication with phone number verification and role-based access control.</p>
+      <h1>Security <span>Management</span> Platform</h1>
+      <p>Real-time patrol management, guard tracking, and comprehensive security oversight for your organization.</p>
+      <div class="hero-buttons">
+        <a href="/login" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Sign in
+        </a>
+        <a href="/signup" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          Create account
+        </a>
       </div>
     </div>
+  </section>
 
-    <h2 class="section-title">Get Started</h2>
-    <div style="text-align: center; margin-bottom: 30px;">
-      <a href="/login" class="btn">Login</a>
-      <a href="/signup" class="btn btn-outline">Sign Up</a>
+  <section class="section">
+    <div class="section-header">
+      <h2>Everything you need</h2>
+      <p>Tools and features to keep your security operations running smoothly.</p>
     </div>
-
-    <h2 class="section-title">Quick Links</h2>
-    <div style="text-align: center; margin-bottom: 50px;">
-      <a href="/documentation" class="btn">📖 API Documentation</a>
-      <a href="/api-endpoints" class="btn btn-outline">🔗 API Endpoints</a>
-      <a href="/privacy-policy" class="btn btn-outline">🔒 Privacy Policy</a>
-      <a href="/terms-of-service" class="btn btn-outline">📄 Terms of Service</a>
-    </div>
-
-    <div class="features">
-      <h2 class="section-title">Features</h2>
-      <div class="feature-item">
-        <span class="feature-icon">📍</span>
-        <div>
-          <strong style="color: #fff;">Real-time Location Tracking</strong>
-          <p style="margin: 0;">Track guard positions and ensure coverage</p>
-        </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <svg class="feature-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <h3>Real-time Guard Tracking</h3>
+        <p>Monitor guard positions and patrol routes live. Ensure full coverage across all your sites with GPS-enabled tracking.</p>
       </div>
-      <div class="feature-item">
-        <span class="feature-icon">📋</span>
-        <div>
-          <strong style="color: #fff;">Shift Management</strong>
-          <p style="margin: 0;">Assign and monitor guard shifts</p>
-        </div>
+      <div class="feature-card">
+        <svg class="feature-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <h3>Shift &amp; Assignment Management</h3>
+        <p>Create and assign patrol shifts, manage guard schedules, and track completion status from a single dashboard.</p>
       </div>
-      <div class="feature-item">
-        <span class="feature-icon">📢</span>
-        <div>
-          <strong style="color: #fff;">Incident Reporting</strong>
-          <p style="margin: 0;">Quick reporting with photos and GPS data</p>
-        </div>
+      <div class="feature-card">
+        <svg class="feature-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <h3>Role-based Access Control</h3>
+        <p>Granular permissions for admins, supervisors, and guards. Each role sees exactly what they need to do their job.</p>
       </div>
-      <div class="feature-item">
-        <span class="feature-icon">🔔</span>
-        <div>
-          <strong style="color: #fff;">Real-time Notifications</strong>
-          <p style="margin: 0;">Instant alerts for emergencies and updates</p>
-        </div>
+      <div class="feature-card">
+        <svg class="feature-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <h3>Incident Reporting</h3>
+        <p>Guards can report incidents instantly with photos, GPS coordinates, and notes. Supervisors are notified in real time.</p>
+      </div>
+      <div class="feature-card">
+        <svg class="feature-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <h3>Analytics &amp; Reporting</h3>
+        <p>Comprehensive reports on patrol completion, guard performance, incident trends, and operational metrics.</p>
+      </div>
+      <div class="feature-card">
+        <svg class="feature-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        <h3>RESTful API</h3>
+        <p>Complete API for integrating with your existing systems. Built with Express.js and backed by PostgreSQL.</p>
       </div>
     </div>
+  </section>
 
-    <footer>
-      <p>PatrolLink v1.0.0 | Built with ❤️</p>
-      <p style="margin-top: 10px; font-size: 0.9rem;">
-        Backend: Express.js + PostgreSQL + Directus<br>
-        Frontend: React Native + Expo Router
-      </p>
-    </footer>
-  </div>
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-links">
+        <a href="/documentation">Documentation</a>
+        <a href="/api-endpoints">API Endpoints</a>
+        <a href="/terms-of-service">Terms of Service</a>
+        <a href="/privacy-policy">Privacy Policy</a>
+      </div>
+      <div class="copyright">&copy; PatrolLink</div>
+    </div>
+  </footer>
 </body>
 </html>
