@@ -136,7 +136,7 @@ const checkpointLateLimiter = rateLimit({
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 // app.use(session({ secret: 'secret', resave: false, saveUninitialized: true }));
-app.use(cookieParser());
+// app.use(cookieParser()); // Removed to prevent session conflicts in cluster mode
 app.use(bodyParser.urlencoded({ extended: true, limit: '5mb' }));
 app.use(bodyParser.json({ limit: '5mb' }));
 app.use('/api', (req, res, next) => {
@@ -173,6 +173,7 @@ app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  rolling: true, // Force the session cookie to be set on every response
   proxy: true, // Trust the reverse proxy
   cookie: {
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
