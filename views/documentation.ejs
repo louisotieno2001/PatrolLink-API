@@ -141,6 +141,10 @@
     .auth-badge.public { background: #64748b; color: #fff; }
     .auth-badge.protected { background: #f59e0b; color: #000; }
     .endpoint-desc { color: #94a3b8; font-size: 0.9rem; margin-bottom: 12px; }
+    .breadcrumb{display:flex;align-items:center;gap:6px;padding:10px 40px;font-size:0.82rem;color:#64748b;background:rgba(15,23,42,0.6)}
+    .breadcrumb a{color:#64748b;text-decoration:none;transition:color .15s;display:inline-flex;align-items:center;gap:4px}
+    .breadcrumb a:hover{color:#60a5fa}
+    .breadcrumb .sep{color:#334155;font-size:0.7rem}
     .tab-content table {
       width: 100%; border-collapse: collapse; margin-bottom: 16px;
     }
@@ -219,6 +223,15 @@
         <p>Complete guide to PatrolLink architecture, API, and deployment.</p>
       </div>
     </section>
+
+    <div class="breadcrumb">
+      <a href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Home
+      </a>
+      <span class="sep">›</span>
+      <span>Documentation</span>
+    </div>
 
     <!-- OVERVIEW -->
     <div class="tab-content active" id="tab-overview">

@@ -854,7 +854,7 @@ const checkSession = (req, res, next) => {
  * Validates that a redirect target is a safe relative path (prevents open redirect)
  */
 const SAFE_REDIRECT_PATHS = new Set([
-  '/admin/dashboard', '/api-endpoints', '/documentation',
+  '/admin/dashboard', '/developer/dashboard', '/api-endpoints', '/documentation',
   '/paywall', '/login', '/signup',
 ]);
 const isValidRedirect = (target) => {
@@ -874,9 +874,9 @@ const isValidRedirect = (target) => {
  */
 const requireAuth = (req, res, next) => {
   if (req.session && req.session.user) {
-    const allowedRoles = ['admin', 'supervisor'];
+    const allowedRoles = ['admin', 'supervisor', 'developer'];
     if (!allowedRoles.includes(req.session.user.role)) {
-      return res.status(403).send('Access denied. Admin or Supervisor privileges required.');
+      return res.status(403).send('Access denied. Admin, Supervisor, or Developer privileges required.');
     }
     next();
   } else {
@@ -1173,6 +1173,26 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       });
     }
 
+    // Check subscription status for web-role users (admin, supervisor, developer)
+    if (user.role === 'admin' || user.role === 'supervisor' || user.role === 'developer') {
+      try {
+        const orgResponse = await query(
+          `/items/organizations?filter[invite_code][_eq]=${encodeURIComponent(user.invite_code)}&fields=subscription_status&limit=1`
+        );
+        const org = (orgResponse.data.data || [])[0];
+        if (org && org.subscription_status !== 'active') {
+          return res.status(403).json({
+            error: 'Subscription Inactive',
+            code: 'SUBSCRIPTION_INACTIVE',
+            subscription_status: org.subscription_status,
+            message: 'Your organization\'s subscription is not active. Please renew your plan to access the dashboard.',
+          });
+        }
+      } catch (orgError) {
+        console.error('Error checking subscription during login:', orgError);
+      }
+    }
+
     // Fetch assignments for guards
     let assignments = [];
     let ongoingPatrol = null;
@@ -1253,9 +1273,10 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       token: token,
     };
 
-    // Get the returnTo URL from session or default to /admin/dashboard
+    // Get the returnTo URL from session or default based on role
     const rawReturnTo = req.session.returnTo;
-    const returnTo = rawReturnTo && isValidRedirect(rawReturnTo) ? rawReturnTo : '/admin/dashboard';
+    const defaultRedirect = user.role === 'developer' ? '/developer/dashboard' : '/admin/dashboard';
+    const returnTo = rawReturnTo && isValidRedirect(rawReturnTo) ? rawReturnTo : defaultRedirect;
     delete req.session.returnTo; // Clear it after use
 
     res.json({
@@ -1510,6 +1531,16 @@ app.get('/admin/dashboard', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /developer/dashboard
+ * Web-based developer dashboard page (session auth)
+ */
+app.get('/developer/dashboard', requireAuth, async (req, res) => {
+  res.render('developer_dashboard', {
+    user: req.session.user,
+  });
+});
+
+/**
  * GET /api/admin/dashboard
  * Dashboard summary as JSON (token auth, used by mobile/api)
  * Optional ?org_id=xxx to scope data to a single organization
@@ -1710,6 +1741,7 @@ app.get('/api/admin/dashboard/guards', verifyTokenMiddleware, requireRole('admin
         phone: g.phone,
         email: g.email,
         invite_code: g.invite_code,
+        suspended: g.suspended === true,
         location: locationsById.get(locId) || locId || 'Not assigned',
         assigned_areas: assignment?.assigned_areas || '',
         operating_hours: assignment?.start_time && assignment?.end_time
@@ -1741,7 +1773,7 @@ app.get('/api/admin/dashboard/supervisors', verifyTokenMiddleware, requireRole('
       inviteCode = orgResult.rows[0]?.invite_code || null;
     }
 
-    let endpoint = "/items/users?filter[role][_eq]=supervisor&fields=*";
+    let endpoint = "/items/users?filter[_or][0][role][_eq]=supervisor&filter[_or][1][role][_eq]=admin&fields=*";
     if (inviteCode) {
       endpoint += `&filter[invite_code][_eq]=${encodeURIComponent(inviteCode)}`;
     }
@@ -1754,6 +1786,7 @@ app.get('/api/admin/dashboard/supervisors', verifyTokenMiddleware, requireRole('
       phone_raw: s.phone || null,
       email: s.email,
       invite_code: s.invite_code,
+      suspended: s.suspended === true,
       status: s.status || 'active',
       last_access: s.last_access || null,
     }));
@@ -1786,17 +1819,179 @@ app.get('/api/admin/dashboard/search', verifyTokenMiddleware, requireRole('admin
 
 /**
  * GET /api/admin/dashboard/organizations
- * List all organizations (for sidebar/search dropdown)
+ * List organizations scoped to the logged-in user's invite_code
  */
 app.get('/api/admin/dashboard/organizations', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
+    const inviteCode = req.user.invite_code;
+    if (!inviteCode) {
+      return res.json({ organizations: [] });
+    }
     const result = await pool.query(
-      'SELECT id, name, invite_code, subscription_tier, subscription_status, monthly_rate FROM organizations ORDER BY name'
+      'SELECT id, name, invite_code, subscription_tier, subscription_status, monthly_rate FROM organizations WHERE invite_code = $1 ORDER BY name',
+      [inviteCode]
     );
     res.json({ organizations: result.rows || [] });
   } catch (err) {
     console.error('Orgs fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch organizations' });
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id/suspend
+ * Suspend a user (set suspended field to true)
+ */
+app.patch('/api/admin/users/:id/suspend', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const { id } = req.params;
+
+    if (String(id) === String(currentUserId)) {
+      return res.status(403).json({ error: 'Forbidden', message: 'You cannot suspend yourself' });
+    }
+
+    const inviteCode = req.user.invite_code;
+
+    if (!inviteCode) {
+      return res.status(400).json({ error: 'Bad Request', message: 'No organization invite code found' });
+    }
+
+    const userResponse = await query(
+      `/items/users?filter[id][_eq]=${encodeURIComponent(id)}&filter[invite_code][_eq]=${encodeURIComponent(inviteCode)}&limit=1`
+    );
+    const user = (userResponse.data.data || [])[0];
+    if (!user) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found in your organization' });
+    }
+
+    await query(`/items/users/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      data: { suspended: true },
+    });
+
+    res.json({ message: 'User suspended successfully' });
+  } catch (error) {
+    console.error('Error suspending user:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to suspend user' });
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id/activate
+ * Reactivate a suspended user (set suspended field to false)
+ */
+app.patch('/api/admin/users/:id/activate', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const inviteCode = req.user.invite_code;
+    const { id } = req.params;
+
+    if (!inviteCode) {
+      return res.status(400).json({ error: 'Bad Request', message: 'No organization invite code found' });
+    }
+
+    const userResponse = await query(
+      `/items/users?filter[id][_eq]=${encodeURIComponent(id)}&filter[invite_code][_eq]=${encodeURIComponent(inviteCode)}&limit=1`
+    );
+    const user = (userResponse.data.data || [])[0];
+    if (!user) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found in your organization' });
+    }
+
+    await query(`/items/users/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      data: { suspended: false },
+    });
+
+    res.json({ message: 'User activated successfully' });
+  } catch (error) {
+    console.error('Error activating user:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to activate user' });
+  }
+});
+
+/**
+ * DELETE /api/admin/users/:id
+ * Delete a supervisor/admin user and cascade related data
+ */
+app.delete('/api/admin/users/:id', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const inviteCode = req.user.invite_code;
+    const { id } = req.params;
+
+    if (!inviteCode) {
+      return res.status(400).json({ error: 'Bad Request', message: 'No organization invite code found' });
+    }
+
+    const userResponse = await query(
+      `/items/users?filter[id][_eq]=${encodeURIComponent(id)}&filter[invite_code][_eq]=${encodeURIComponent(inviteCode)}&limit=1`
+    );
+    const user = (userResponse.data.data || [])[0];
+    if (!user) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found in your organization' });
+    }
+
+    await deleteUserAccount(id);
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to delete user' });
+  }
+});
+
+/**
+ * POST /api/admin/organizations/:id/generate-code
+ * Generate a new invite code for an organization
+ */
+app.post('/api/admin/organizations/:id/generate-code', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const inviteCode = req.user.invite_code;
+    const { id } = req.params;
+
+    if (!inviteCode) {
+      return res.status(400).json({ error: 'Bad Request', message: 'No organization invite code found' });
+    }
+
+    const orgResult = await pool.query(
+      'SELECT id, invite_code FROM organizations WHERE id = $1 AND invite_code = $2',
+      [id, inviteCode]
+    );
+    const org = orgResult.rows[0];
+    if (!org) {
+      return res.status(404).json({ error: 'Not Found', message: 'Organization not found' });
+    }
+
+    const crypto = require('crypto');
+    const prefix = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const suffix = String(Math.floor(1000 + Math.random() * 9000));
+    const newCode = `${prefix}_${suffix}`;
+
+    const oldCode = org.invite_code;
+
+    await pool.query('UPDATE organizations SET invite_code = $1 WHERE id = $2', [newCode, id]);
+
+    await query(`/items/organizations/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      data: { invite_code: newCode },
+    });
+
+    // Update all users in this org to the new invite code
+    const userResponse = await query(
+      `/items/users?filter[invite_code][_eq]=${encodeURIComponent(oldCode)}&fields=id&limit=-1`
+    );
+    const users = userResponse.data.data || [];
+    for (const u of users) {
+      await query(`/items/users/${encodeURIComponent(u.id)}`, {
+        method: 'PATCH',
+        data: { invite_code: newCode },
+      });
+    }
+
+    res.json({ message: 'Invite code generated successfully', invite_code: newCode });
+  } catch (error) {
+    console.error('Error generating invite code:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to generate invite code' });
   }
 });
 
@@ -1907,6 +2102,7 @@ async function buildDashboardSummary(orgId = null) {
     active_subscriptions: activeSubscriptions,
     total_outstanding: totalOutstanding,
     overdue_payments: overdueCount,
+    payments_due: unpaidPayments.length,
     mrr: monthlyRecurringRevenue,
     tier_breakdown: tierBreakdown,
     at_risk_orgs: atRiskOrgs,
@@ -1914,6 +2110,187 @@ async function buildDashboardSummary(orgId = null) {
     selected_org: selectedOrg,
   };
 }
+
+// ============================================
+// DEVELOPER API — DASHBOARD & API KEYS
+// ============================================
+
+/**
+ * GET /api/developer/dashboard
+ * Developer dashboard summary
+ */
+app.get('/api/developer/dashboard', verifyTokenMiddleware, requireRole('admin', 'supervisor', 'developer'), async (req, res) => {
+  try {
+    const inviteCode = req.user.invite_code;
+    const orgResult = await pool.query(
+      'SELECT id, name, invite_code, subscription_tier, subscription_status, monthly_rate, max_guards FROM organizations WHERE invite_code = $1',
+      [inviteCode]
+    );
+    const org = orgResult.rows[0];
+
+    let apiKeyCount = 0;
+    let activeKeyCount = 0;
+    if (org) {
+      const keyResult = await pool.query(
+        'SELECT COUNT(*) AS total, SUM(CASE WHEN enabled THEN 1 ELSE 0 END) AS active FROM api_keys WHERE organization_id = $1',
+        [org.id]
+      );
+      apiKeyCount = parseInt(keyResult.rows[0]?.total || 0);
+      activeKeyCount = parseInt(keyResult.rows[0]?.active || 0);
+    }
+
+    res.json({
+      org_name: org?.name || null,
+      invite_code: org?.invite_code || inviteCode,
+      subscription_tier: org?.subscription_tier || 'free',
+      subscription_status: org?.subscription_status || 'active',
+      monthly_rate: parseFloat(org?.monthly_rate || 0),
+      max_guards: org?.max_guards || 0,
+      api_key_count: apiKeyCount,
+      active_keys: activeKeyCount,
+    });
+  } catch (err) {
+    console.error('Developer dashboard error:', err);
+    res.status(500).json({ error: 'Failed to load developer dashboard' });
+  }
+});
+
+/**
+ * Helper to generate a unique API key with prefix
+ */
+function generateApiKey() {
+  const crypto = require('crypto');
+  const raw = crypto.randomBytes(32).toString('hex');
+  const key = `plk_${raw}`;
+  const prefix = key.substring(0, 8);
+  return { key, prefix };
+}
+
+/**
+ * GET /api/developer/api-keys
+ * List all API keys for the developer's organization
+ */
+app.get('/api/developer/api-keys', verifyTokenMiddleware, requireRole('admin', 'supervisor', 'developer'), async (req, res) => {
+  try {
+    const inviteCode = req.user.invite_code;
+    if (!inviteCode) {
+      return res.status(400).json({ error: 'Bad Request', message: 'No organization invite code found' });
+    }
+
+    const orgResult = await pool.query('SELECT id FROM organizations WHERE invite_code = $1', [inviteCode]);
+    const org = orgResult.rows[0];
+    if (!org) return res.json({ api_keys: [] });
+
+    const result = await pool.query(
+      'SELECT id, organization_id, name, key_prefix, enabled, created_at, last_used_at FROM api_keys WHERE organization_id = $1 ORDER BY created_at DESC',
+      [org.id]
+    );
+    res.json({ api_keys: result.rows || [] });
+  } catch (err) {
+    console.error('Error fetching API keys:', err);
+    res.status(500).json({ error: 'Failed to fetch API keys' });
+  }
+});
+
+/**
+ * POST /api/developer/api-keys
+ * Create a new API key
+ * Body: { name }
+ */
+app.post('/api/developer/api-keys', verifyTokenMiddleware, requireRole('admin', 'supervisor', 'developer'), async (req, res) => {
+  try {
+    const inviteCode = req.user.invite_code;
+    const { name } = req.body || {};
+
+    if (!inviteCode) {
+      return res.status(400).json({ error: 'Bad Request', message: 'No organization invite code found' });
+    }
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Key name is required' });
+    }
+
+    const orgResult = await pool.query('SELECT id FROM organizations WHERE invite_code = $1', [inviteCode]);
+    const org = orgResult.rows[0];
+    if (!org) return res.status(404).json({ error: 'Not Found', message: 'Organization not found' });
+
+    const { key, prefix } = generateApiKey();
+    const keyHash = require('crypto').createHash('sha256').update(key).digest('hex');
+
+    const result = await pool.query(
+      `INSERT INTO api_keys (organization_id, name, key_prefix, key_hash, enabled, created_by)
+       VALUES ($1, $2, $3, $4, true, $5)
+       RETURNING id, organization_id, name, key_prefix, enabled, created_at`,
+      [org.id, String(name).trim(), prefix, keyHash, req.user.id]
+    );
+
+    res.status(201).json({
+      message: 'API key created successfully',
+      api_key: result.rows[0],
+      raw_key: key,
+    });
+  } catch (err) {
+    console.error('Error creating API key:', err);
+    res.status(500).json({ error: 'Failed to create API key' });
+  }
+});
+
+/**
+ * DELETE /api/developer/api-keys/:id
+ * Revoke (delete) an API key
+ */
+app.delete('/api/developer/api-keys/:id', verifyTokenMiddleware, requireRole('admin', 'supervisor', 'developer'), async (req, res) => {
+  try {
+    const inviteCode = req.user.invite_code;
+    const { id } = req.params;
+
+    const orgResult = await pool.query('SELECT id FROM organizations WHERE invite_code = $1', [inviteCode]);
+    const org = orgResult.rows[0];
+    if (!org) return res.status(404).json({ error: 'Not Found', message: 'Organization not found' });
+
+    const result = await pool.query(
+      'DELETE FROM api_keys WHERE id = $1 AND organization_id = $2 RETURNING id',
+      [id, org.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Not Found', message: 'API key not found' });
+
+    res.json({ message: 'API key revoked successfully' });
+  } catch (err) {
+    console.error('Error deleting API key:', err);
+    res.status(500).json({ error: 'Failed to revoke API key' });
+  }
+});
+
+/**
+ * PATCH /api/developer/api-keys/:id/toggle
+ * Enable or disable an API key
+ * Body: { enabled: boolean }
+ */
+app.patch('/api/developer/api-keys/:id/toggle', verifyTokenMiddleware, requireRole('admin', 'supervisor', 'developer'), async (req, res) => {
+  try {
+    const inviteCode = req.user.invite_code;
+    const { id } = req.params;
+    const { enabled } = req.body || {};
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'Validation Error', message: 'enabled must be a boolean' });
+    }
+
+    const orgResult = await pool.query('SELECT id FROM organizations WHERE invite_code = $1', [inviteCode]);
+    const org = orgResult.rows[0];
+    if (!org) return res.status(404).json({ error: 'Not Found', message: 'Organization not found' });
+
+    const result = await pool.query(
+      'UPDATE api_keys SET enabled = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, organization_id, name, key_prefix, enabled, created_at, last_used_at',
+      [enabled, id, org.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Not Found', message: 'API key not found' });
+
+    res.json({ message: `API key ${enabled ? 'enabled' : 'disabled'} successfully`, api_key: result.rows[0] });
+  } catch (err) {
+    console.error('Error toggling API key:', err);
+    res.status(500).json({ error: 'Failed to toggle API key' });
+  }
+});
 
 // ============================================
 // HEALTH CHECK
@@ -1933,7 +2310,7 @@ app.get('/api/health', async (req, res) => {
 // ============================================
 
 app.get('/', (req, res) => {
-  res.render('index');
+  res.render('index', { user: req.session?.user || null });
 });
 
 app.get('/login', (req, res) => {
@@ -3468,6 +3845,21 @@ const ensureTables = async () => {
       CREATE INDEX IF NOT EXISTS idx_session_expire ON "session" ("expire")
     `).catch((err) => console.error('Failed to create session expire index:', err));
     console.log('Session table ensured');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        key_prefix VARCHAR(8) NOT NULL,
+        key_hash VARCHAR(255) NOT NULL,
+        enabled BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        last_used_at TIMESTAMP,
+        created_by VARCHAR(255)
+      )
+    `).catch((err) => console.error('Failed to create api_keys table:', err));
+    console.log('API keys table ensured');
   } catch (err) {
     console.error('Failed to create session table:', err);
   }

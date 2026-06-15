@@ -86,6 +86,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .badge-tag{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:600;text-transform:uppercase}
 .badge-active{background:rgba(34,197,94,.15);color:var(--green)}
 .badge-inactive{background:rgba(100,116,139,.15);color:var(--muted)}
+.badge-suspended{background:rgba(234,179,8,.15);color:#eab308}
+.clickable-row{cursor:pointer;transition:background .15s}
+.clickable-row:hover{background:var(--bg2)}
 .badge-onpatrol{background:rgba(59,130,246,.15);color:var(--accent)}
 
 /* Buttons */
@@ -101,6 +104,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .btn-ghost:hover{background:rgba(255,255,255,.1)}
 .btn-sm{padding:4px 9px;font-size:10px}
 .btn-sm svg{width:11px;height:11px}
+.btn-link{display:inline-flex;align-items:center;gap:4px;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 6px;border-radius:5px;font-size:11px;transition:.12s;text-decoration:none}
+.btn-link:hover{background:rgba(255,255,255,.06);color:var(--text)}
 
 /* Payment items */
 .pay-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;margin-bottom:4px;border-left:3px solid transparent;background:rgba(255,255,255,.02)}
@@ -176,9 +181,23 @@ tr:hover td{background:rgba(255,255,255,.02)}
         Payments <span class="badge" id="paymentBadge">0</span>
       </button>
     </nav>
-    <div class="sidebar-footer">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span><%= user?.first_name || 'Admin' %></span>
+    <div class="sidebar-footer" style="flex-wrap:wrap;gap:4px">
+      <div style="display:flex;align-items:center;gap:6px;width:100%">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span style="flex:1"><%= user?.first_name || 'Admin' %></span>
+      </div>
+      <div style="display:flex;gap:4px;width:100%;margin-top:2px">
+        <a href="/" class="btn-link" title="Home">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </a>
+        <a href="/documentation" class="btn-link" title="Documentation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </a>
+        <button class="btn-link" id="logoutBtn" title="Logout" style="margin-left:auto;color:var(--red)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </button>
+      </div>
     </div>
   </aside>
 
@@ -188,7 +207,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="org-bar">
       <span class="org-bar-label">Organization</span>
       <div class="org-select-wrap">
-        <select id="orgSelect" onchange="onOrgChange()">
+        <select id="orgSelect">
           <option value="">— All Organizations —</option>
         </select>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -196,7 +215,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div id="orgMeta" style="display:none;font-size:11px;color:var(--muted);display:flex;gap:8px;margin-left:12px"></div>
       <div class="org-bar-right">
         <span class="last-updated" id="lastUpdated"></span>
-        <button class="refresh-btn" onclick="refreshActiveTab()" title="Refresh">
+        <button class="refresh-btn" id="refreshBtn" title="Refresh">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
         </button>
       </div>
@@ -214,7 +233,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
             <span><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Supervisors</span>
             <span id="supervisorCount" style="font-size:12px;color:var(--muted)"></span>
           </div>
-          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Status</th><th>Last Access</th></tr></thead><tbody id="supervisorTableBody"><tr><td colspan="5" class="empty">Select an organization above</td></tr></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Status</th><th>Suspended</th><th>Last Access</th></tr></thead><tbody id="supervisorTableBody"><tr><td colspan="5" class="empty">Select an organization above</td></tr></tbody></table></div>
         </div>
       </div>
 
@@ -225,7 +244,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
             <span><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Guards</span>
             <span id="guardCount" style="font-size:12px;color:var(--muted)"></span>
           </div>
-          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Location</th><th>Areas</th><th>Hours</th><th>Status</th><th>Last Access</th></tr></thead><tbody id="guardTableBody"><tr><td colspan="8" class="empty">Select an organization above</td></tr></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Location</th><th>Areas</th><th>Hours</th><th>Status</th><th>Suspended</th><th>Last Access</th></tr></thead><tbody id="guardTableBody"><tr><td colspan="8" class="empty">Select an organization above</td></tr></tbody></table></div>
         </div>
       </div>
 
@@ -234,10 +253,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="section">
           <div class="section-header">
             <span><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Payments</span>
-            <button class="btn btn-warning btn-sm" onclick="generateAllMissing()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Generate Missing
-            </button>
           </div>
           <div id="paymentList"></div>
         </div>
@@ -247,6 +262,29 @@ tr:hover td{background:rgba(255,255,255,.02)}
 </div>
 
 <!-- Mark Paid Modal -->
+<div class="modal-overlay" id="userManageModal">
+  <div class="modal" style="text-align:center">
+    <img id="userManageAvatar" src="" alt="" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 8px;display:block;background:var(--bg2)">
+    <h2 id="userManageName" style="font-size:16px;margin-bottom:2px"></h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px" id="userManageStatus"></p>
+    <div class="modal-actions" style="justify-content:center;gap:10px">
+      <button class="btn btn-danger" id="suspendUserBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Suspend</button>
+      <button class="btn btn-danger" id="deleteUserBtn" style="background:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Delete</button>
+      <button class="btn btn-ghost" id="closeUserManageBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal" style="text-align:center">
+    <p id="confirmModalMsg" style="font-size:14px;margin-bottom:16px"></p>
+    <div class="modal-actions" style="justify-content:center;gap:10px">
+      <button class="btn btn-danger" id="confirmModalOkBtn">Confirm</button>
+      <button class="btn btn-ghost" id="confirmModalCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="markPaidModal">
   <div class="modal">
     <h2><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Mark Payment as Paid</h2>
@@ -255,8 +293,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <select id="paidMethod"><option value="credit_card">Credit Card</option><option value="bank_transfer">Bank Transfer</option><option value="cash">Cash</option><option value="check">Check</option></select>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-success" id="confirmPaidBtn" onclick="confirmMarkPaid()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Confirm</button>
+      <button class="btn btn-ghost" id="closeModalBtn">Cancel</button>
+      <button class="btn btn-success" id="confirmPaidBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Confirm</button>
     </div>
   </div>
 </div>
@@ -265,6 +303,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 <script>
 const TOKEN = '<%= user?.token || "" %>';
+const CURRENT_USER_ID = '<%= user?.id || "" %>';
 const API = '/api/admin/dashboard';
 let activeTab = 'dashboard';
 let pendingPaymentId = null;
@@ -291,8 +330,12 @@ async function loadOrgs() {
     const d = await r.json();
     orgList = d.organizations || [];
     const sel = document.getElementById('orgSelect');
-    sel.innerHTML = '<option value="">— All Organizations —</option>' +
-      orgList.map(o => `<option value="${o.id}">${escapeHtml(o.name)} (${o.invite_code || ''})</option>`).join('');
+    sel.innerHTML = orgList.map(o => `<option value="${o.id}">${escapeHtml(o.name)} (${o.invite_code || ''})</option>`).join('');
+    // Auto-select if only one org
+    if (orgList.length === 1) {
+      sel.value = orgList[0].id;
+      onOrgChange();
+    }
   } catch(e) { showToast('Failed to load organizations','error'); }
 }
 
@@ -356,7 +399,7 @@ function renderMultiOrgDashboard(d) {
     { label:'Guards', value:d.total_guards, icon:'guard', color:'#22c55e', bg:'rgba(34,197,94,.12)' },
     { label:'Supervisors', value:d.supervisor_count||0, icon:'super', color:'#8b5cf6', bg:'rgba(139,92,246,.12)' },
     { label:'Active Subs', value:d.active_subscriptions, icon:'sub', color:'#14b8a6', bg:'rgba(20,184,166,.12)' },
-    { label:'MRR', value:'$'+fmt(d.mrr), icon:'mrr', color:'#f59e0b', bg:'rgba(245,158,11,.12)' },
+    { label:'MRR', value:fmt(d.mrr)+'/= ', icon:'mrr', color:'#f59e0b', bg:'rgba(245,158,11,.12)' },
   ];
   const icons = {
     org:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
@@ -382,9 +425,9 @@ function renderSingleOrgDashboard(d) {
   const cards = [
     { label:'Guards', value:d.total_guards, icon:'guard', color:'#22c55e', bg:'rgba(34,197,94,.12)' },
     { label:'Supervisors', value:d.supervisor_count||0, icon:'super', color:'#8b5cf6', bg:'rgba(139,92,246,.12)' },
-    { label:'Monthly Rate', value:'$'+fmt(o.monthly_rate), icon:'mrr', color:'#f59e0b', bg:'rgba(245,158,11,.12)' },
+    { label:'Monthly Rate', value:fmt(o.monthly_rate)+'/= ', icon:'mrr', color:'#f59e0b', bg:'rgba(245,158,11,.12)' },
     { label:'Max Guards', value:o.max_guards||'∞', icon:'org', color:'#3b82f6', bg:'rgba(59,130,246,.12)' },
-    { label:'Payments Due', value:d.overdue_payments, icon:'sub', color:d.overdue_payments>0?'#ef4444':'#14b8a6', bg:d.overdue_payments>0?'rgba(239,68,68,.12)':'rgba(20,184,166,.12)' },
+    { label:'Payments Due', value:d.payments_due||(d.overdue_payments||0), icon:'sub', color:(d.payments_due||d.overdue_payments)>0?'#ef4444':'#14b8a6', bg:(d.payments_due||d.overdue_payments)>0?'rgba(239,68,68,.12)':'rgba(20,184,166,.12)' },
   ];
   const icons = {
     org:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
@@ -400,9 +443,10 @@ function renderSingleOrgDashboard(d) {
       <span class="org-badge sub">${o.subscription_tier||'free'}</span>
       <span class="org-badge status ${o.subscription_status==='past_due'?'past_due':''}">${o.subscription_status||'active'}</span>
       <span style="font-size:12px;color:var(--muted)">${o.invite_code||''}</span>
+      <button class="btn btn-ghost btn-sm generate-code-btn" title="Generate new invite code" style="font-size:10px;padding:2px 8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>New Code</button>
     </div>
     <div class="metrics">${cards.map(c => `<div class="metric"><div class="metric-icon" style="background:${c.bg}"><span style="color:${c.color}">${icons[c.icon]}</span></div><div class="metric-body"><span class="metric-value" style="color:${c.color}">${c.value}</span><span class="metric-label">${c.label}</span></div></div>`).join('')}</div>
-    ${bal > 0 ? `<div class="section" style="border-color:var(--red);background:rgba(239,68,68,.04)"><div class="section-header"><span style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Outstanding Balance: $${fmt(bal)}</span></div></div>` : ''}
+    ${bal > 0 ? `<div class="section" style="border-color:var(--red);background:rgba(239,68,68,.04)"><div class="section-header"><span style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Outstanding Balance: ${fmt(bal)}/= </span></div></div>` : ''}
     <div class="section"><div class="section-header"><span>Recent Payments</span></div>
       ${(d.recent_payments||[]).length ? d.recent_payments.slice(0,5).map(p => `
         <div class="pay-item ${p.status}">
@@ -410,7 +454,7 @@ function renderSingleOrgDashboard(d) {
             <svg viewBox="0 0 24 24" fill="none" stroke="${p.status==='paid'?'#22c55e':p.status==='overdue'?'#ef4444':'#f59e0b'}" stroke-width="2" style="width:18px;height:18px">${p.status==='paid'?'<polyline points="20 6 9 17 4 12"/>':p.status==='overdue'?'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>':'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'}</svg>
             <div class="pay-info"><span class="pay-period">${fmtDate(p.period_start)} - ${fmtDate(p.period_end)}</span></div>
           </div>
-          <div class="pay-right"><span class="pay-amt">$${fmt(p.amount_due)}</span><span class="pay-badge ${p.status}">${p.status}</span></div>
+          <div class="pay-right"><span class="pay-amt">${fmt(p.amount_due)}/= </span><span class="pay-badge ${p.status}">${p.status}</span></div>
         </div>`).join('') : '<div class="empty"><p>No payments yet</p></div>'}
     </div>`;
 }
@@ -426,14 +470,14 @@ async function loadSupervisors() {
     document.getElementById('supervisorCount').textContent = `${sups.length} total`;
     document.getElementById('supervisorBadge').textContent = sups.length;
     if (!sups.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No supervisors</td></tr>'; return; }
-    tbody.innerHTML = sups.map(s => `<tr>
+    tbody.innerHTML = sups.map(s => `<tr class="clickable-row" data-user-id="${s.id}" data-user-name="${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}" data-user-status="${s.status||'inactive'}" data-user-suspended="${isSuspended(s.suspended)}">
       <td><strong>${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}</strong></td>
-      <td><span class="phone-${phoneRevealed[s.id]?'visible':'masked'}">${phoneRevealed[s.id]?escapeHtml(s.phone_raw||''):(s.phone||'—')}</span> <button class="toggle-phone" onclick="togglePhone('${s.id}')">${phoneRevealed[s.id]?'Hide':'Show'}</button></td>
-      <td>${s.email||'—'}</td>
-      <td><span class="badge-tag ${s.status==='active'?'badge-active':'badge-inactive'}">${s.status||'inactive'}</span></td>
+      <td><span class="phone-${phoneRevealed[s.id]?'visible':'masked'}">${phoneRevealed[s.id]?escapeHtml(s.phone_raw||''):(s.phone||'—')}</span> <button class="toggle-phone" data-guard-id="${s.id}">${phoneRevealed[s.id]?'Hide':'Show'}</button></td>
+      <td><span class="badge-tag ${isSuspended(s.suspended)?'badge-suspended':s.status==='active'?'badge-active':'badge-inactive'}">${isSuspended(s.suspended)?'Suspended':s.status||'inactive'}</span></td>
+      <td style="font-size:12px">${isSuspended(s.suspended) ? '<span style="color:var(--red)">Yes</span>' : '<span style="color:var(--green)">No</span>'}</td>
       <td style="font-size:11px;color:var(--muted)">${s.last_access ? new Date(s.last_access).toLocaleString() : 'Never'}</td>
     </tr>`).join('');
-  } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Failed to load</td></tr>'; }
+  } catch(e) {     tbody.innerHTML = '<tr><td colspan="5" class="empty">Failed to load</td></tr>'; }
 }
 
 async function loadGuards() {
@@ -447,14 +491,14 @@ async function loadGuards() {
     document.getElementById('guardCount').textContent = `${guards.length} total`;
     document.getElementById('guardBadge').textContent = guards.length;
     if (!guards.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No guards</td></tr>'; return; }
-    tbody.innerHTML = guards.map(g => `<tr>
+    tbody.innerHTML = guards.map(g => `<tr class="clickable-row" data-user-id="${g.id}" data-user-name="${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}" data-user-status="${g.patrol_status||'Inactive'}" data-user-suspended="${isSuspended(g.suspended)}">
       <td><strong>${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}</strong></td>
       <td>${g.phone||'—'}</td>
-      <td style="font-size:11px">${g.email||'—'}</td>
       <td>${escapeHtml(g.location||'—')}</td>
       <td style="font-size:11px">${escapeHtml(g.assigned_areas||'—')}</td>
       <td style="font-size:11px;color:var(--muted)">${g.operating_hours||'—'}</td>
       <td><span class="badge-tag ${g.patrol_status==='On Patrol'?'badge-onpatrol':'badge-inactive'}">${g.patrol_status||'Inactive'}</span></td>
+      <td style="font-size:12px">${isSuspended(g.suspended) ? '<span style="color:var(--red)">Yes</span>' : '<span style="color:var(--green)">No</span>'}</td>
       <td style="font-size:11px;color:var(--muted)">${g.last_access?new Date(g.last_access).toLocaleString():'—'}</td>
     </tr>`).join('');
   } catch(e) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Failed to load</td></tr>'; }
@@ -478,9 +522,9 @@ async function loadPayments() {
           <div class="pay-info"><span class="pay-org">${fmtDate(p.period_start)} - ${fmtDate(p.period_end)}</span><span class="pay-period">Due: ${fmtDate(p.due_date)}</span></div>
         </div>
         <div class="pay-right">
-          <span class="pay-amt">$${fmt(p.amount_due)}</span>
+          <span class="pay-amt">${fmt(p.amount_due)}/= </span>
           <span class="pay-badge ${sc}">${p.status}</span>
-          ${sc !== 'paid' ? `<button class="btn btn-success btn-sm" onclick="openMarkPaid('${p.id}',${p.amount_due||0})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Pay</button>` : ''}
+          ${sc !== 'paid' ? `<button class="btn btn-success btn-sm mark-paid-btn" data-payment-id="${p.id}" data-amount="${p.amount_due||0}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Pay</button>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -504,20 +548,11 @@ async function confirmMarkPaid() {
   btn.disabled=false; btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Confirm';
 }
 
-async function generateAllMissing() {
-  const btn = event?.target?.closest?.('button'); if(btn){btn.disabled=true;btn.textContent='Generating...'}
-  try {
-    const r = await fetch(`${API}/generate-all-payments`, { method:'POST', headers:{Authorization:`Bearer ${TOKEN}`} });
-    if(!r.ok) throw new Error('Failed');
-    const d = await r.json(); showToast(d.message,'success');
-    if (selectedOrgId) loadPayments(); else loadDashboard();
-  } catch(e) { showToast(e.message,'error'); }
-  if(btn){btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Generate Missing'}
-}
 
 function fmt(n) { return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtDate(d) { if(!d) return 'N/A'; return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function escapeHtml(s) { if(!s) return '—'; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function isSuspended(v) { return v === true; }
 
 function showToast(msg,type) {
   const c=document.getElementById('toastContainer');
@@ -528,6 +563,168 @@ function showToast(msg,type) {
 }
 
 document.getElementById('markPaidModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal()});
+
+document.getElementById('orgSelect').addEventListener('change', onOrgChange);
+document.getElementById('refreshBtn').addEventListener('click', refreshActiveTab);
+document.getElementById('logoutBtn').addEventListener('click', logout);
+
+document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+document.getElementById('confirmPaidBtn').addEventListener('click', confirmMarkPaid);
+
+let manageUserId = null;
+let manageUserSuspended = false;
+
+function openUserManage(userId, name, suspended) {
+  manageUserId = userId;
+  manageUserSuspended = suspended === 'true';
+  const isSelf = String(userId) === String(CURRENT_USER_ID);
+  document.getElementById('userManageName').textContent = name;
+  document.getElementById('userManageStatus').textContent = `Suspended: ${suspended ? 'Yes' : 'No'}`;
+  document.getElementById('userManageAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=128&rounded=true`;
+  document.getElementById('userManageAvatar').alt = name;
+  const btn = document.getElementById('suspendUserBtn');
+  if (manageUserSuspended) {
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 12 5 16 13 8"/><path d="M12 3a9 9 0 1 0 9 9"/></svg>Activate';
+    btn.className = 'btn btn-success';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.title = '';
+  } else if (isSelf) {
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Suspend';
+    btn.className = 'btn btn-danger';
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.title = 'You cannot suspend yourself';
+  } else {
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Suspend';
+    btn.className = 'btn btn-danger';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.title = '';
+  }
+  document.getElementById('userManageModal').classList.add('active');
+}
+
+document.getElementById('supervisorTableBody').addEventListener('click', e => {
+  const btn = e.target.closest('.toggle-phone');
+  if (btn) { togglePhone(btn.dataset.guardId); return; }
+
+  const row = e.target.closest('tr.clickable-row');
+  if (row) openUserManage(row.dataset.userId, row.dataset.userName, row.dataset.userSuspended);
+});
+
+document.getElementById('guardTableBody').addEventListener('click', e => {
+  const row = e.target.closest('tr.clickable-row');
+  if (row) openUserManage(row.dataset.userId, row.dataset.userName, row.dataset.userSuspended);
+});
+
+document.getElementById('closeUserManageBtn').addEventListener('click', () => {
+  document.getElementById('userManageModal').classList.remove('active');
+});
+
+document.getElementById('userManageModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) document.getElementById('userManageModal').classList.remove('active');
+});
+
+document.getElementById('confirmModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) document.getElementById('confirmModal').classList.remove('active');
+});
+document.getElementById('confirmModalCancelBtn').addEventListener('click', () => {
+  document.getElementById('confirmModal').classList.remove('active');
+});
+
+let confirmCallback = null;
+function showConfirm(msg, cb) {
+  document.getElementById('confirmModalMsg').textContent = msg;
+  confirmCallback = cb;
+  document.getElementById('confirmModal').classList.add('active');
+}
+document.getElementById('confirmModalOkBtn').addEventListener('click', () => {
+  document.getElementById('confirmModal').classList.remove('active');
+  if (confirmCallback) confirmCallback();
+  confirmCallback = null;
+});
+
+document.getElementById('suspendUserBtn').addEventListener('click', async () => {
+  if (!manageUserId) return;
+
+  if (manageUserSuspended) {
+    // Activate
+    try {
+      const r = await fetch(`/api/admin/users/${manageUserId}/activate`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${TOKEN}` }
+      });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.message || 'Failed to activate'); }
+      showToast('User activated', 'success');
+      document.getElementById('userManageModal').classList.remove('active');
+      loadSupervisors(); loadGuards();
+    } catch (e) { showToast(e.message, 'error'); }
+    return;
+  }
+
+  // Suspend — warn self-suspenders
+  const isSelf = String(manageUserId) === String(CURRENT_USER_ID);
+  const doSuspend = async () => {
+    try {
+      const r = await fetch(`/api/admin/users/${manageUserId}/suspend`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${TOKEN}` }
+      });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.message || 'Failed to suspend'); }
+      showToast('User suspended', 'success');
+      document.getElementById('userManageModal').classList.remove('active');
+      loadSupervisors(); loadGuards();
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+  if (isSelf) {
+    showConfirm('You are about to suspend your own account. You will not be able to log in again until an admin reactivates you. Are you sure you want to proceed?', doSuspend);
+  } else {
+    await doSuspend();
+  }
+});
+
+document.getElementById('tab-dashboard').addEventListener('click', e => {
+  const btn = e.target.closest('.generate-code-btn');
+  if (!btn) return;
+  const orgId = selectedOrgId;
+  if (!orgId) return showToast('Select an organization first', 'error');
+  showConfirm('Generate a new invite code? All users in this organization will be updated to the new code.', () => {
+  fetch(`/api/admin/organizations/${orgId}/generate-code`, {
+    method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }
+  }).then(r => r.json()).then(d => {
+    if (d.error) throw new Error(d.message || d.error);
+    showToast(`New code: ${d.invite_code}`, 'success');
+    loadDashboard();
+  }).catch(e => showToast(e.message, 'error'));
+  });
+});
+
+document.getElementById('deleteUserBtn').addEventListener('click', async () => {
+  if (!manageUserId) return;
+  const doDelete = async () => {
+    try {
+      const r = await fetch(`/api/admin/users/${manageUserId}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${TOKEN}` }
+      });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.message || 'Failed to delete'); }
+      showToast('User deleted', 'success');
+      document.getElementById('userManageModal').classList.remove('active');
+      loadSupervisors(); loadGuards();
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+  showConfirm('Permanently delete this user and all related data? This cannot be undone.', doDelete);
+});
+
+document.getElementById('paymentList').addEventListener('click', e => {
+  const btn = e.target.closest('.mark-paid-btn');
+  if (btn) openMarkPaid(btn.dataset.paymentId, parseFloat(btn.dataset.amount) || 0);
+});
+
+async function logout() {
+  try {
+    await fetch('/api/logout', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` } });
+  } catch(e) {}
+  window.location.href = '/';
+}
 
 // Init
 loadOrgs().then(() => loadDashboard());
