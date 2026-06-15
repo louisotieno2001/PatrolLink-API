@@ -142,11 +142,21 @@ app.use(bodyParser.json({ limit: '5mb' }));
 app.use('/api', (req, res, next) => {
   cors({
     origin: (origin, callback) => {
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Allow same-origin requests or allowed origins
+      const host = req.get('host');
+      const protocol = req.protocol;
+      const siteOrigin = `${protocol}://${host}`;
+
+      if (!origin || allowedOrigins.includes(origin) || origin === siteOrigin) {
+        return callback(null, true);
+      }
+
       // Allow requests from mobile apps without Origin header if they include a valid auth token
       // or if it's an auth-related request (which won't have a token yet)
       const isAuthPath = req.path === '/api/login' || req.path === '/api/register';
       if (!origin && (req.headers.authorization || isAuthPath)) return callback(null, true);
+
+      console.warn(`CORS blocked for origin: ${origin} on path: ${req.path}`);
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
@@ -163,10 +173,12 @@ app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Trust the reverse proxy
   cookie: {
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
   },
 }));
 
@@ -877,10 +889,12 @@ const requireAuth = (req, res, next) => {
   if (req.session && req.session.user) {
     const allowedRoles = ['admin', 'supervisor', 'developer'];
     if (!allowedRoles.includes(req.session.user.role)) {
+      console.warn(`Access denied for user ${req.session.user.id} with role ${req.session.user.role} on ${req.originalUrl}`);
       return res.status(403).send('Access denied. Admin, Supervisor, or Developer privileges required.');
     }
     next();
   } else {
+    console.log(`Unauthenticated access attempt to ${req.originalUrl}, redirecting to /login`);
     const returnTo = req.originalUrl;
     if (isValidRedirect(returnTo)) {
       req.session.returnTo = returnTo;
@@ -1289,23 +1303,33 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     const returnTo = rawReturnTo && isValidRedirect(rawReturnTo) ? rawReturnTo : defaultRedirect;
     delete req.session.returnTo; // Clear it after use
 
-    res.json({
-      message: 'Login successful',
-      user: {
-        id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        phone: user.phone,
-        role: user.role,
-        invite_code: user.invite_code,
-        assignments: assignments,
+    console.log(`Login successful for user ${user.id}, role: ${user.role}. Redirecting to: ${returnTo}`);
+
+    // Explicitly save session before sending response to avoid race conditions in cluster mode
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error during login:', err);
+        return res.status(500).json({ error: 'Internal Server Error', message: 'Failed to initialize session' });
+      }
+      
+      res.json({
+        message: 'Login successful',
+        user: {
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          phone: user.phone,
+          role: user.role,
+          invite_code: user.invite_code,
+          assignments: assignments,
+          patrol_status: patrolStatus,
+          ongoing_patrol: ongoingPatrol,
+        },
+        token,
         patrol_status: patrolStatus,
         ongoing_patrol: ongoingPatrol,
-      },
-      token,
-      patrol_status: patrolStatus,
-      ongoing_patrol: ongoingPatrol,
-      returnTo,
+        returnTo,
+      });
     });
   } catch (error) {
     console.error('Login Error:', error);
