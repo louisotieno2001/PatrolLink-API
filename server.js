@@ -1953,7 +1953,7 @@ app.get('/documentation', (req, res) => {
 });
 
 app.get('/api-endpoints', (req, res) => {
-  res.render('api_endpoints');
+  res.redirect(301, '/documentation');
 });
 
 app.get('/privacy-policy', (req, res) => {

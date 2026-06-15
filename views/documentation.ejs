@@ -3,979 +3,818 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation - PatrolLink</title>
   <link rel="icon" href="/images/logo.png" type="image/x-icon">
-  <title>PatrolLink API Documentation</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      background: #0f172a;
       color: #e2e8f0;
       line-height: 1.6;
-      min-height: 100vh;
+      display: flex;
     }
-    .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
-    header {
-      text-align: center;
-      margin-bottom: 50px;
-      padding-bottom: 30px;
-      border-bottom: 1px solid #334155;
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 270px;
+      height: 100vh;
+      background: #0f172a;
+      border-right: 1px solid #1e293b;
+      overflow-y: auto;
+      z-index: 10;
+      padding: 20px 0;
     }
-    h1 { font-size: 2.5rem; color: #fff; margin-bottom: 10px; }
-    .subtitle { color: #94a3b8; font-size: 1.1rem; }
-    h2 {
-      color: #fff;
-      font-size: 1.5rem;
-      margin: 40px 0 20px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #3b82f6;
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px 20px;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 12px;
     }
-    h3 { color: #e2e8f0; font-size: 1.2rem; margin: 25px 0 15px; }
+    .sidebar-logo img { width: 30px; height: 30px; border-radius: 8px; }
+    .sidebar-logo span { font-size: 1.05rem; font-weight: 700; color: #fff; }
+    .sidebar-logo span small { font-weight: 400; color: #64748b; font-size: 0.72rem; margin-left: 4px; }
+    .sidebar-item {
+      display: block;
+      padding: 8px 20px;
+      color: #64748b;
+      font-size: 0.88rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+      border-left: 2px solid transparent;
+      user-select: none;
+    }
+    .sidebar-item:hover { color: #e2e8f0; background: rgba(255,255,255,0.02); }
+    .sidebar-item.active { color: #60a5fa; border-left-color: #60a5fa; background: rgba(96,165,250,0.06); }
+    .sidebar-item.group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #94a3b8;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      cursor: pointer;
+      border-left: none;
+      padding: 10px 20px;
+    }
+    .sidebar-item.group:hover { color: #e2e8f0; background: none; }
+    .sidebar-item.group .chevron {
+      width: 14px; height: 14px;
+      transition: transform 0.2s;
+    }
+    .sidebar-item.group .chevron.open { transform: rotate(90deg); }
+    .sidebar-children { display: none; }
+    .sidebar-children.open { display: block; }
+    .sidebar-item.child { padding-left: 36px; font-size: 0.84rem; }
+    .sidebar-item.deep { padding-left: 52px; font-size: 0.81rem; }
+    .main { margin-left: 270px; flex: 1; min-height: 100vh; }
+    .hero {
+      position: relative;
+      min-height: 260px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0;
+      background: url('/images/hero1.webp') center center / cover no-repeat;
+    }
+    .hero-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(15,23,42,0.88) 0%, rgba(30,41,59,0.6) 50%, rgba(15,23,42,0.88) 100%);
+    }
+    .hero-content {
+      position: relative; z-index: 1; text-align: center; padding: 40px 20px;
+    }
+    .hero-content h1 { font-size: 2.8rem; color: #fff; font-weight: 800; margin-bottom: 6px; }
+    .hero-content p { color: #94a3b8; font-size: 1.1rem; }
+    .tab-content { display: none; max-width: 900px; margin: 0 auto; padding: 48px 40px 80px; }
+    .tab-content.active { display: block; }
+    .tab-content h2 {
+      font-size: 1.75rem; color: #fff; font-weight: 700;
+      margin: 0 0 20px; padding-bottom: 8px; border-bottom: 2px solid #2563eb;
+    }
+    .tab-content h3 { font-size: 1.3rem; color: #e2e8f0; font-weight: 600; margin: 32px 0 12px; }
+    .tab-content h4 { font-size: 1.05rem; color: #cbd5e1; font-weight: 600; margin: 24px 0 10px; }
+    .tab-content p { color: #94a3b8; margin-bottom: 16px; }
+    .tab-content ul, .tab-content ol { color: #94a3b8; padding-left: 24px; margin-bottom: 16px; }
+    .tab-content li { margin-bottom: 6px; }
+    .tab-content strong { color: #e2e8f0; }
+    .tab-content code {
+      background: #1e293b; color: #a5b4fc; padding: 2px 6px; border-radius: 4px; font-size: 0.88rem;
+    }
+    .tab-content pre {
+      background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+      padding: 16px 20px; overflow-x: auto; margin-bottom: 20px;
+    }
+    .tab-content pre code { background: none; padding: 0; color: #a5b4fc; font-size: 0.85rem; line-height: 1.7; }
     .endpoint {
-      background: #1e293b;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
-      border: 1px solid #334155;
+      background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+      padding: 20px; margin-bottom: 16px;
+    }
+    .endpoint-head {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;
     }
     .method {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      margin-right: 10px;
+      display: inline-block; padding: 3px 10px; border-radius: 6px;
+      font-weight: 700; font-size: 0.78rem; letter-spacing: 0.3px;
     }
-    .post { background: #22c55e; color: #000; }
-    .get { background: #3b82f6; color: #fff; }
-    .put { background: #06b6d4; color: #001018; }
-    .patch { background: #a855f7; color: #fff; }
-    .delete { background: #ef4444; color: #fff; }
-    .path {
-      font-family: 'Monaco', 'Menlo', monospace;
-      font-size: 1rem;
-      color: #e2e8f0;
+    .method.get { background: #3b82f6; color: #fff; }
+    .method.post { background: #22c55e; color: #000; }
+    .method.put { background: #06b6d4; color: #000; }
+    .method.patch { background: #a855f7; color: #fff; }
+    .method.delete { background: #ef4444; color: #fff; }
+    .endpoint-path {
+      font-family: 'Monaco','Menlo',monospace; font-size: 0.9rem; color: #e2e8f0; word-break: break-all;
     }
-    .description { color: #94a3b8; margin: 10px 0; }
     .auth-badge {
-      display: inline-block;
-      background: #f59e0b;
-      color: #000;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      margin-left: 10px;
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 0.72rem; font-weight: 600; margin-left: 4px;
     }
-    .code-block {
-      background: #0f172a;
-      border-radius: 8px;
-      padding: 15px;
-      overflow-x: auto;
-      font-family: 'Monaco', 'Menlo', monospace;
-      font-size: 0.9rem;
-      margin: 10px 0;
-      border: 1px solid #334155;
+    .auth-badge.public { background: #64748b; color: #fff; }
+    .auth-badge.protected { background: #f59e0b; color: #000; }
+    .endpoint-desc { color: #94a3b8; font-size: 0.9rem; margin-bottom: 12px; }
+    .tab-content table {
+      width: 100%; border-collapse: collapse; margin-bottom: 16px;
     }
-    .code-block code { color: #a5b4fc; }
-    .param { color: #fbbf24; }
-    .string { color: #86efac; }
-    .comment { color: #64748b; }
-    .response { margin-top: 15px; }
-    .response-title { color: #94a3b8; font-size: 0.9rem; margin-bottom: 8px; }
-    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-    th, td {
-      text-align: left;
-      padding: 10px;
-      border-bottom: 1px solid #334155;
+    .tab-content th, .tab-content td {
+      text-align: left; padding: 10px 12px; border-bottom: 1px solid #1e293b; font-size: 0.88rem;
     }
-    th { color: #94a3b8; font-weight: 600; font-size: 0.85rem; }
-    td { color: #e2e8f0; }
-    .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
-    .status-200 { background: #22c55e; color: #000; }
+    .tab-content th { color: #64748b; font-weight: 600; }
+    .tab-content td { color: #cbd5e1; }
+    .tab-content .param { color: #fbbf24; }
+    .tab-content .string { color: #86efac; }
+    .tab-content .comment { color: #64748b; }
+    .status-codes { margin-top: 12px; }
+    .status-codes .status {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 0.75rem; font-weight: 600; margin: 2px 4px 2px 0;
+    }
+    .status-200, .status-201 { background: #22c55e; color: #000; }
     .status-400 { background: #f59e0b; color: #000; }
-    .status-401 { background: #ef4444; color: #fff; }
-    .status-404 { background: #ef4444; color: #fff; }
+    .status-401, .status-403, .status-404 { background: #ef4444; color: #fff; }
     .status-409 { background: #f97316; color: #fff; }
     .status-500 { background: #ef4444; color: #fff; }
-    .section-nav {
-      position: fixed;
-      top: 100px;
-      right: 20px;
-      background: #1e293b;
-      padding: 20px;
-      border-radius: 12px;
-      border: 1px solid #334155;
+    .tech-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px; margin-bottom: 24px;
     }
-    .section-nav a {
-      display: block;
-      color: #94a3b8;
-      text-decoration: none;
-      padding: 5px 0;
-      font-size: 0.9rem;
+    .tech-card {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 12px; padding: 20px; text-align: center;
     }
-    .section-nav a:hover { color: #3b82f6; }
-    .nav-title { color: #fff; font-weight: 600; margin-bottom: 10px; }
-    footer {
-      text-align: center;
-      margin-top: 50px;
-      padding-top: 30px;
-      border-top: 1px solid #334155;
-      color: #64748b;
+    .tech-card h4 { color: #fff; margin-bottom: 6px; }
+    .tech-card p { color: #64748b; font-size: 0.85rem; margin: 0; }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; }
+      .tab-content { padding: 24px 16px 60px; }
+      .hero-content h1 { font-size: 2rem; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>🚀 PatrolLink API Documentation</h1>
-      <p class="subtitle">Version 1.0.0 | Last Updated: February 2026</p>
-    </header>
-
-    <h2 id="authentication">🔐 Authentication</h2>
-    <p style="color: #94a3b8; margin-bottom: 20px;">
-      The PatrolLink API uses JWT (JSON Web Token) for authentication. After a successful login, 
-      you will receive a token that must be included in the header of subsequent requests.
-    </p>
-    
-    <div class="endpoint">
-      <h3>Getting Started</h3>
-      <p class="description">To authenticate with the PatrolLink API:</p>
-      <ol style="color: #94a3b8; padding-left: 20px; line-height: 2;">
-        <li>Call <strong>POST /api/login</strong> with phone and password</li>
-        <li>Receive the JWT token in the response</li>
-        <li>Include the token in the <code>Authorization</code> header for protected routes</li>
-      </ol>
-      <div class="code-block">
-        <code><span class="comment"># Authorization Header Format</span><br>
-Authorization: Bearer <your-jwt-token></code>
-      </div>
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <img src="/images/logo.png" alt="PatrolLink">
+      <span>PatrolLink <small>docs</small></span>
     </div>
 
-    <h2 id="auth-endpoints">👤 Auth Endpoints</h2>
+    <a class="sidebar-item active" data-tab="overview">Overview</a>
+    <a class="sidebar-item" data-tab="frontend">Frontend</a>
 
-    <!-- Register -->
-    <div class="endpoint" id="register">
-      <span class="method post">POST</span>
-      <span class="path">/api/register</span>
-      <span class="auth-badge">PUBLIC</span>
-      <p class="description">Register a new user account</p>
-      
-      <h3>Request Body</h3>
+    <div class="sidebar-item group" data-group="backend">
+      Backend
+      <svg class="chevron open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+    <div class="sidebar-children open" data-group="backend">
+      <a class="sidebar-item child" data-tab="backend">Express.js Server</a>
+      <a class="sidebar-item child" data-tab="backend-auth">Authentication</a>
+      <a class="sidebar-item child" data-tab="api-auth">Auth APIs</a>
+      <a class="sidebar-item child" data-tab="api-guard">Guard APIs</a>
+      <a class="sidebar-item child" data-tab="api-admin">Admin APIs</a>
+      <a class="sidebar-item child" data-tab="api-other">Additional APIs</a>
+      <a class="sidebar-item child" data-tab="backend-mid">Middleware</a>
+      <a class="sidebar-item child" data-tab="backend-err">Error Handling</a>
+    </div>
+
+    <a class="sidebar-item" data-tab="database">Database</a>
+    <a class="sidebar-item" data-tab="cms">CMS</a>
+    <a class="sidebar-item" data-tab="deployment">Deployment</a>
+  </nav>
+
+  <div class="main">
+    <section class="hero">
+      <div class="hero-bg"></div>
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <h1>Documentation</h1>
+        <p>Complete guide to PatrolLink architecture, API, and deployment.</p>
+      </div>
+    </section>
+
+    <!-- OVERVIEW -->
+    <div class="tab-content active" id="tab-overview">
+      <h2>Project Summary</h2>
+      <p>PatrolLink is a comprehensive security management platform that enables organizations to manage their security guards, track patrols in real time, and maintain operational oversight through an intuitive dashboard. The system consists of a cross-platform mobile app for guards, a web-based admin dashboard, and a robust RESTful API backend.</p>
+      <p>The platform solves the challenge of managing distributed security teams by providing real-time GPS tracking, structured patrol logging, incident reporting, and role-based access control — all from a single integrated system.</p>
+
+      <h3>Core Capabilities</h3>
+      <ul>
+        <li><strong>Real-time guard tracking</strong> — GPS-based patrol monitoring with live location updates</li>
+        <li><strong>Patrol lifecycle management</strong> — Start, monitor, and complete patrol sessions with checkpoint logging</li>
+        <li><strong>Incident reporting</strong> — Guards can log incidents with photos, GPS coordinates, and notes</li>
+        <li><strong>Role-based access</strong> — Distinct views and permissions for guards, supervisors, and administrators</li>
+        <li><strong>Shift management</strong> — Assign guards to locations, set operating hours, and track coverage</li>
+        <li><strong>Push notifications</strong> — Real-time alerts for incidents, patrol status changes, and administrative updates</li>
+      </ul>
+
+      <h2>Technology Stack</h2>
+      <div class="tech-grid">
+        <div class="tech-card"><h4>React Native + Expo</h4><p>Cross-platform mobile app with GPS, camera, and push notifications.</p></div>
+        <div class="tech-card"><h4>Express.js</h4><p>Node.js backend providing RESTful API, session management, and middleware.</p></div>
+        <div class="tech-card"><h4>PostgreSQL</h4><p>Relational database for users, patrols, assignments, logs, and sessions.</p></div>
+        <div class="tech-card"><h4>Directus</h4><p>Headless CMS providing auto-generated REST API for content management.</p></div>
+        <div class="tech-card"><h4>JWT + bcryptjs</h4><p>Token-based auth with password hashing for secure access control.</p></div>
+        <div class="tech-card"><h4>EJS</h4><p>Server-side templating for web views and documentation.</p></div>
+      </div>
+
+      <h3>Technology Justification</h3>
       <table>
-        <thead>
-          <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
-        </thead>
+        <thead><tr><th>Technology</th><th>Justification</th></tr></thead>
         <tbody>
-          <tr><td class="param">firstName</td><td>string</td><td>Yes</td><td>User's first name</td></tr>
-          <tr><td class="param">lastName</td><td>string</td><td>Yes</td><td>User's last name</td></tr>
-          <tr><td class="param">phone</td><td>string</td><td>Yes</td><td>Phone number (e.g., +254712345678)</td></tr>
-          <tr><td class="param">password</td><td>string</td><td>Yes</td><td>Account password (min 6 characters)</td></tr>
-          <tr><td class="param">role</td><td>string</td><td>No</td><td>User role (default: "guard")</td></tr>
-          <tr><td class="param">companyCode</td><td>string</td><td>No</td><td>Company/invite code</td></tr>
+          <tr><td>React Native + Expo</td><td>Single codebase for iOS and Android; built-in GPS, camera, and notification APIs.</td></tr>
+          <tr><td>Express.js</td><td>Minimal overhead, flexible middleware, well-suited for REST APIs.</td></tr>
+          <tr><td>PostgreSQL</td><td>ACID-compliant, excellent with geospatial data, reliable for security data.</td></tr>
+          <tr><td>Directus</td><td>Headless CMS auto-generates REST APIs; provides admin UI without building CRUD views.</td></tr>
+          <tr><td>JWT</td><td>Stateless authentication, works well with mobile clients.</td></tr>
+          <tr><td>EJS</td><td>Simple server-side rendering; no client framework needed for docs and auth pages.</td></tr>
         </tbody>
       </table>
 
-      <h3>Example Request</h3>
-      <div class="code-block">
-        <code><span class="string">curl</span> -X POST http://localhost:5000/api/register \<br>
-&nbsp;&nbsp;-H <span class="string">"Content-Type: application/json"</span> \<br>
-&nbsp;&nbsp;-d '{<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"firstName"</span>: <span class="string">"John"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"lastName"</span>: <span class="string">"Doe"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"phone"</span>: <span class="string">"+254712345678"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"password"</span>: <span class="string">"securepassword123"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"role"</span>: <span class="string">"guard"</span><br>
-&nbsp;&nbsp;}'</code>
+      <h2>Why PatrolLink?</h2>
+      <ul>
+        <li><strong>Accountability</strong> — GPS-verified patrols ensure guards complete assigned routes</li>
+        <li><strong>Efficiency</strong> — Supervisors monitor all guards from a single dashboard</li>
+        <li><strong>Transparency</strong> — Complete audit trail of patrols, logs, and incidents</li>
+        <li><strong>Scalability</strong> — From single site to multi-location enterprise deployments</li>
+        <li><strong>Integration</strong> — RESTful API enables integration with existing security infrastructure</li>
+      </ul>
+    </div>
+
+    <!-- FRONTEND -->
+    <div class="tab-content" id="tab-frontend">
+      <h2>Frontend Architecture</h2>
+      <p>The PatrolLink frontend consists of two distinct surfaces: the mobile app for guards and server-rendered web views for documentation and authentication.</p>
+
+      <h3>Mobile App (React Native + Expo)</h3>
+      <p>The guard-facing mobile application is built with <strong>React Native</strong> using the <strong>Expo</strong> managed workflow. This provides cross-platform compatibility (iOS and Android) with access to native device features:</p>
+      <ul>
+        <li><strong>expo-location</strong> — GPS tracking for patrol routes and location check-ins</li>
+        <li><strong>expo-camera</strong> — Photo capture for incident reports and checkpoint evidence</li>
+        <li><strong>expo-notifications</strong> — Push notification support for real-time alerts</li>
+        <li><strong>expo-secure-store</strong> — Secure token storage for JWT authentication</li>
+        <li><strong>React Context API</strong> — State management for user sessions and patrol state</li>
+      </ul>
+      <p>The app uses <strong>Expo Router</strong> for file-based navigation and communicates with the backend via <code>fetch()</code> calls to the Express.js API.</p>
+
+      <h3>Web Views (EJS)</h3>
+      <p>Documentation, authentication (login/signup), pricing, and the admin dashboard are server-rendered using <strong>EJS templates</strong>. This approach avoids the complexity of a separate frontend framework for pages that are primarily content or form-based. Templates are served directly by the Express server with inline CSS and minimal client-side JavaScript.</p>
+    </div>
+
+    <!-- BACKEND -->
+    <div class="tab-content" id="tab-backend">
+      <h2>Express.js Server</h2>
+      <p>The backend is built on <strong>Express.js 5</strong> and serves as the central API gateway. It handles authentication, session management, routing, rate limiting, and communication with the database and Directus CMS.</p>
+
+      <h3>Server Configuration</h3>
+      <ul>
+        <li>Express 5 with middleware pipeline: helmet, cors, cookie-parser, body-parser, express-session</li>
+        <li>View engine: EJS for server-rendered pages</li>
+        <li>PostgreSQL connection via <code>pg</code> library for sessions and direct queries</li>
+        <li>Directus REST API integration for user and content management</li>
+        <li>Rate limiting on auth endpoints to prevent brute-force attacks</li>
+      </ul>
+    </div>
+
+    <!-- BACKEND - AUTH -->
+    <div class="tab-content" id="tab-backend-auth">
+      <h2>Authentication &amp; Authorization</h2>
+      <p>PatrolLink uses a dual authentication system:</p>
+      <ul>
+        <li><strong>JWT tokens</strong> — Primary auth mechanism for mobile app API calls. Tokens are generated on login, include user role and organization data, and are verified on protected routes via the <code>verifyTokenMiddleware</code>.</li>
+        <li><strong>Express sessions</strong> — Used for web views (admin dashboard). Login creates a session with user data and a JWT token for server-to-API calls.</li>
+        <li><strong>Role-based access</strong> — The <code>requireRole()</code> middleware restricts endpoints to specific roles (admin, supervisor).</li>
+      </ul>
+    </div>
+
+    <!-- API - AUTH -->
+    <div class="tab-content" id="tab-api-auth">
+      <h2>Auth APIs</h2>
+      <p>All API responses follow the format <code>{ "message": "...", "data": ... }</code> for success or <code>{ "error": "...", "message": "..." }</code> for errors.</p>
+
+      <div class="endpoint">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/register</span>
+          <span class="auth-badge public">PUBLIC</span>
+        </div>
+        <div class="endpoint-desc">Register a new user account.</div>
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="param">firstName</td><td>string</td><td>Yes</td><td>User's first name</td></tr>
+            <tr><td class="param">lastName</td><td>string</td><td>Yes</td><td>User's last name</td></tr>
+            <tr><td class="param">phone</td><td>string</td><td>Yes</td><td>Phone number (e.g., +254712345678)</td></tr>
+            <tr><td class="param">password</td><td>string</td><td>Yes</td><td>Password (min 8 chars, must include uppercase, lowercase, digit, special char)</td></tr>
+            <tr><td class="param">role</td><td>string</td><td>No</td><td>User role (default: "guard")</td></tr>
+            <tr><td class="param">companyCode</td><td>string</td><td>No</td><td>Organization invite code</td></tr>
+          </tbody>
+        </table>
+        <pre><code><span class="comment">// Example response (201 Created)</span>
+{
+  <span class="param">"message"</span>: <span class="string">"User registered successfully"</span>,
+  <span class="param">"user"</span>: { <span class="param">"id"</span>: <span class="string">"abc123"</span>, <span class="param">"name"</span>: <span class="string">"John Doe"</span>, <span class="param">"phone"</span>: <span class="string">"+254712345678"</span>, <span class="param">"role"</span>: <span class="string">"guard"</span> }
+}</code></pre>
+        <div class="status-codes"><span class="status status-201">201 Created</span><span class="status status-400">400 Bad Request</span><span class="status status-409">409 Conflict</span></div>
       </div>
 
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"message"</span>: <span class="string">"User registered successfully"</span>,<br>
-&nbsp;&nbsp;<span class="param">"user"</span>: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"id"</span>: <span class="string">"abc123"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"name"</span>: <span class="string">"John Doe"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"phone"</span>: <span class="string">"+254712345678"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"role"</span>: <span class="string">"guard"</span><br>
-&nbsp;&nbsp;}<br>
-}</code>
+      <div class="endpoint">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/login</span>
+          <span class="auth-badge public">PUBLIC</span>
+        </div>
+        <div class="endpoint-desc">Authenticate and receive a JWT token.</div>
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="param">phone</td><td>string</td><td>Yes</td><td>Registered phone number</td></tr>
+            <tr><td class="param">password</td><td>string</td><td>Yes</td><td>Account password</td></tr>
+          </tbody>
+        </table>
+        <pre><code><span class="comment">// Example response (200 OK)</span>
+{
+  <span class="param">"message"</span>: <span class="string">"Login successful"</span>,
+  <span class="param">"user"</span>: { <span class="param">"id"</span>: <span class="string">"abc123"</span>, <span class="param">"role"</span>: <span class="string">"admin"</span> },
+  <span class="param">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIs..."</span>,
+  <span class="param">"returnTo"</span>: <span class="string">"/admin/dashboard"</span>
+}</code></pre>
+        <div class="status-codes"><span class="status status-200">200 OK</span><span class="status status-400">400 Bad Request</span><span class="status status-401">401 Unauthorized</span></div>
       </div>
 
-      <div class="response">
-        <span class="response-title">Status Codes:</span>
-        <span class="status status-200">201 Created</span>
-        <span class="status status-400">400 Bad Request</span>
-        <span class="status status-409">409 Conflict</span>
-        <span class="status status-500">500 Internal Server Error</span>
+      <div class="endpoint">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/logout</span>
+          <span class="auth-badge public">PUBLIC</span>
+        </div>
+        <div class="endpoint-desc">End user session and logout.</div>
+        <pre><code>{ <span class="param">"message"</span>: <span class="string">"Logout successful"</span> }</code></pre>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/me</span>
+          <span class="auth-badge protected">PROTECTED</span>
+        </div>
+        <div class="endpoint-desc">Get the current authenticated user's profile.</div>
+        <div class="status-codes"><span class="status status-200">200 OK</span><span class="status status-401">401 Unauthorized</span></div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head">
+          <span class="method post">POST</span>
+          <span class="endpoint-path">/api/verify-token</span>
+          <span class="auth-badge public">PUBLIC</span>
+        </div>
+        <div class="endpoint-desc">Verify whether a JWT token is valid.</div>
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="param">token</td><td>string</td><td>Yes</td><td>JWT token to validate</td></tr>
+          </tbody>
+        </table>
+        <pre><code>{ <span class="param">"valid"</span>: <span class="string">true</span>, <span class="param">"user"</span>: { <span class="param">"id"</span>: <span class="string">"abc123"</span>, <span class="param">"role"</span>: <span class="string">"guard"</span> } }</code></pre>
+        <div class="status-codes"><span class="status status-200">200 OK</span><span class="status status-400">400 Bad Request</span><span class="status status-401">401 Unauthorized</span></div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head">
+          <span class="method delete">DELETE</span>
+          <span class="endpoint-path">/api/account</span>
+          <span class="auth-badge protected">PROTECTED</span>
+        </div>
+        <div class="endpoint-desc">Delete the authenticated user's account and all associated data.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head">
+          <span class="method get">GET</span>
+          <span class="endpoint-path">/api/health</span>
+          <span class="auth-badge public">PUBLIC</span>
+        </div>
+        <div class="endpoint-desc">Health check endpoint.</div>
       </div>
     </div>
 
-    <!-- Login -->
-    <div class="endpoint" id="login">
-      <span class="method post">POST</span>
-      <span class="path">/api/login</span>
-      <span class="auth-badge">PUBLIC</span>
-      <p class="description">Authenticate and receive JWT token</p>
-      
-      <h3>Request Body</h3>
+    <!-- API - GUARD -->
+    <div class="tab-content" id="tab-api-guard">
+      <h2>Guard APIs</h2>
+      <p>Endpoints used by the mobile app for assignments, patrol lifecycle, location tracking, and logs.</p>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/my-assignments</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Fetch assignments for the authenticated guard.</div>
+        <pre><code>{ <span class="param">"assignments"</span>: [ { <span class="param">"id"</span>: <span class="string">"asg1"</span>, <span class="param">"location"</span>: <span class="string">"loc1"</span>, <span class="param">"assigned_areas"</span>: <span class="string">"Gate A"</span>, <span class="param">"start_time"</span>: <span class="string">"09:00"</span>, <span class="param">"end_time"</span>: <span class="string">"17:00"</span> } ] }</code></pre>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method put">PUT</span><span class="endpoint-path">/api/my-assignments</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Update the authenticated guard's assignment details.</div>
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="param">location</td><td>string</td><td>Yes</td><td>Location ID</td></tr>
+            <tr><td class="param">assigned_areas</td><td>string</td><td>Yes</td><td>Comma-separated areas</td></tr>
+            <tr><td class="param">start_time</td><td>string</td><td>Yes</td><td>Shift start time</td></tr>
+            <tr><td class="param">end_time</td><td>string</td><td>Yes</td><td>Shift end time</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/locations</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Fetch all locations in the authenticated user's organization.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/patrols</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Fetch guard patrol history. Supports <code>?limit=10</code> and <code>?sort=-start_time</code>.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/api/patrols</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Start a new patrol session.</div>
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="param">start_time</td><td>string</td><td>Yes</td><td>Patrol start timestamp</td></tr>
+            <tr><td class="param">user_id</td><td>string</td><td>Yes</td><td>Guard user ID</td></tr>
+            <tr><td class="param">duration</td><td>number</td><td>No</td><td>Expected duration in minutes</td></tr>
+            <tr><td class="param">location_data</td><td>array</td><td>No</td><td>Starting GPS coordinates</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method patch">PATCH</span><span class="endpoint-path">/api/patrols/:id</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Update or end a patrol. Set <code>end_time</code> and <code>status</code> to complete.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method patch">PATCH</span><span class="endpoint-path">/api/patrols/:id/location</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Append incremental GPS points to an active patrol route.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/logs</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Fetch logs created by the authenticated guard. Supports <code>?limit=50</code> and <code>?sort=-timestamp</code>.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/api/logs</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Create a new guard log entry.</div>
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="param">title</td><td>string</td><td>Yes</td><td>Log title</td></tr>
+            <tr><td class="param">description</td><td>string</td><td>Yes</td><td>Log details</td></tr>
+            <tr><td class="param">category</td><td>string</td><td>Yes</td><td>activity, unusual, incident, checkpoint, other</td></tr>
+            <tr><td class="param">images</td><td>string|array</td><td>No</td><td>Image data or URIs</td></tr>
+            <tr><td class="param">patrol_id</td><td>string</td><td>No</td><td>Related patrol ID</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/api/checkpoint/late</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Report a late checkpoint arrival.</div>
+      </div>
+    </div>
+
+    <!-- API - ADMIN -->
+    <div class="tab-content" id="tab-api-admin">
+      <h2>Admin APIs</h2>
+      <p>Endpoints for the admin dashboard to manage guards, assignments, locations, patrols, and logs. All scoped to the authenticated admin's organization via <code>invite_code</code>.</p>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/dashboard</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Admin dashboard overview with organization stats.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/dashboard/guards</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Guard list with online status, last seen, and assignment info.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/dashboard/supervisors</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">List supervisors in the organization.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/dashboard/organizations</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">List organizations (super-admin only).</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/guards</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">List all guards with enriched assignment and patrol data.</div>
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="param">id</td><td>string</td><td>Guard user ID</td></tr>
+            <tr><td class="param">first_name</td><td>string</td><td>Guard first name</td></tr>
+            <tr><td class="param">last_name</td><td>string</td><td>Guard last name</td></tr>
+            <tr><td class="param">phone</td><td>string</td><td>Phone number</td></tr>
+            <tr><td class="param">location</td><td>string</td><td>Resolved location name</td></tr>
+            <tr><td class="param">is_online</td><td>boolean</td><td>Currently on active patrol</td></tr>
+            <tr><td class="param">last_seen_display</td><td>string</td><td>Online status or timestamp</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/api/admin/guards/:id</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Remove a guard and cascade-delete assignments, logs, and patrols.</div>
+        <pre><code>{ <span class="param">"message"</span>: <span class="string">"Guard removed successfully"</span>, <span class="param">"deleted"</span>: { <span class="param">"assignments"</span>: 2, <span class="param">"logs"</span>: 8, <span class="param">"patrols"</span>: 5 } }</code></pre>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/api/admin/assignments</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Create a new assignment for a guard.</div>
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="param">user_id</td><td>string</td><td>Yes</td><td>Guard user ID</td></tr>
+            <tr><td class="param">location</td><td>string</td><td>Yes</td><td>Location ID</td></tr>
+            <tr><td class="param">assigned_areas</td><td>string</td><td>Yes</td><td>Comma-separated areas</td></tr>
+            <tr><td class="param">start_time</td><td>string</td><td>Yes</td><td>Start time (e.g., 09:00)</td></tr>
+            <tr><td class="param">end_time</td><td>string</td><td>Yes</td><td>End time (e.g., 17:00)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/patrols</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Admin patrol feed with guard names. Supports <code>?limit=50</code> and <code>?sort=-start_time</code>.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/logs</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Admin logs feed with location resolution. Supports <code>?limit=50</code> and <code>?sort=-timestamp</code>.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/locations</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">List all locations in the organization.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/api/admin/locations</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Create a new location.</div>
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="param">name</td><td>string</td><td>Yes</td><td>Location name</td></tr>
+            <tr><td class="param">assigned_areas</td><td>string</td><td>No</td><td>Comma-separated areas</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method patch">PATCH</span><span class="endpoint-path">/api/admin/locations/:id</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Update a location's name or assigned areas.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/api/admin/locations/:id</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Delete a location from the organization.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/notifications</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Admin notifications feed.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/api/admin/push-token</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Register a push notification token.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/api/admin/push-token</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Remove a push notification token.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/dashboard/search</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Search organizations by name.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/admin/dashboard/payments/:orgId</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Get payment records for an organization.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/api/admin/dashboard/payments/:id/mark-paid</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Mark a payment as paid.</div>
+      </div>
+    </div>
+
+    <!-- API - OTHER -->
+    <div class="tab-content" id="tab-api-other">
+      <h2>Additional APIs</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/assignments</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Fetch all assignment records.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/organizations/invite-codes</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">List invite codes for all registered organizations.</div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/api/organizations/validate-invite-code</span><span class="auth-badge public">PUBLIC</span></div>
+        <div class="endpoint-desc">Validate whether an organization invite code exists.</div>
+        <pre><code>{ <span class="param">"valid"</span>: <span class="string">true</span>, <span class="param">"message"</span>: <span class="string">"Invite code is valid"</span> }</code></pre>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="endpoint-path">/api/assignments</span><span class="auth-badge protected">PROTECTED</span></div>
+        <div class="endpoint-desc">Fetch all assignment records from backend storage.</div>
+      </div>
+    </div>
+
+    <!-- BACKEND - MIDDLEWARE -->
+    <div class="tab-content" id="tab-backend-mid">
+      <h2>Middleware</h2>
       <table>
-        <thead>
-          <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
-        </thead>
+        <thead><tr><th>Middleware</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td class="param">phone</td><td>string</td><td>Yes</td><td>Registered phone number</td></tr>
-          <tr><td class="param">password</td><td>string</td><td>Yes</td><td>Account password</td></tr>
+          <tr><td><code>verifyTokenMiddleware</code></td><td>Validates JWT from <code>Authorization: Bearer &lt;token&gt;</code> header and attaches decoded user to <code>req.user</code></td></tr>
+          <tr><td><code>requireRole(...roles)</code></td><td>Restricts access to specified roles (e.g., <code>requireRole('admin', 'supervisor')</code>)</td></tr>
+          <tr><td><code>requireAuth</code></td><td>Session-based auth guard for web views; redirects unauthenticated users to login</td></tr>
+          <tr><td><code>loginLimiter</code></td><td>Rate limiter for login/register endpoints to prevent brute-force attacks</td></tr>
+          <tr><td><code>patrolLimiter</code></td><td>Rate limiter for patrol creation to prevent spam</td></tr>
+          <tr><td><code>logLimiter</code></td><td>Rate limiter for log creation</td></tr>
+          <tr><td><code>checkpointLateLimiter</code></td><td>Rate limiter for late checkpoint reports</td></tr>
         </tbody>
       </table>
-
-      <h3>Example Request</h3>
-      <div class="code-block">
-        <code><span class="string">curl</span> -X POST http://localhost:5000/api/login \<br>
-&nbsp;&nbsp;-H <span class="string">"Content-Type: application/json"</span> \<br>
-&nbsp;&nbsp;-d '{<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"phone"</span>: <span class="string">"+254712345678"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"password"</span>: <span class="string">"securepassword123"</span><br>
-&nbsp;&nbsp;}'</code>
-      </div>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"message"</span>: <span class="string">"Login successful"</span>,<br>
-&nbsp;&nbsp;<span class="param">"user"</span>: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"id"</span>: <span class="string">"abc123"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"name"</span>: <span class="string">"John Doe"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"phone"</span>: <span class="string">"+254712345678"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"role"</span>: <span class="string">"guard"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"company_code"</span>: <span class="string">"COMP001"</span><br>
-&nbsp;&nbsp;},<br>
-&nbsp;&nbsp;<span class="param">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."</span><br>
-}</code>
-      </div>
-
-      <div class="response">
-        <span class="response-title">Status Codes:</span>
-        <span class="status status-200">200 OK</span>
-        <span class="status status-400">400 Bad Request</span>
-        <span class="status status-401">401 Unauthorized</span>
-        <span class="status status-500">500 Internal Server Error</span>
-      </div>
     </div>
 
-    <!-- Logout -->
-    <div class="endpoint" id="logout">
-      <span class="method post">POST</span>
-      <span class="path">/api/logout</span>
-      <span class="auth-badge">PUBLIC</span>
-      <p class="description">End user session and logout</p>
-      
-      <h3>Example Request</h3>
-      <div class="code-block">
-        <code><span class="string">curl</span> -X POST http://localhost:5000/api/logout \<br>
-&nbsp;&nbsp;-H <span class="string">"Content-Type: application/json"</span> \<br>
-&nbsp;&nbsp;-c cookies.txt</code>
-      </div>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{ <span class="param">"message"</span>: <span class="string">"Logout successful"</span> }</code>
-      </div>
-
-      <div class="response">
-        <span class="response-title">Status Codes:</span>
-        <span class="status status-200">200 OK</span>
-        <span class="status status-500">500 Internal Server Error</span>
-      </div>
-    </div>
-
-    <!-- Get Current User -->
-    <div class="endpoint" id="me">
-      <span class="method get">GET</span>
-      <span class="path">/api/me</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Get current authenticated user information</p>
-      
-      <h3>Headers</h3>
+    <!-- BACKEND - ERROR HANDLING -->
+    <div class="tab-content" id="tab-backend-err">
+      <h2>Error Handling</h2>
+      <p>All error responses follow a consistent format:</p>
+      <pre><code>{ <span class="param">"error"</span>: <span class="string">"ErrorType"</span>, <span class="param">"message"</span>: <span class="string">"Human-readable description"</span> }</code></pre>
       <table>
-        <thead>
-          <tr><th>Header</th><th>Value</th></tr>
-        </thead>
+        <thead><tr><th>Status</th><th>Error</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="param">Authorization</td><td>Bearer <your-jwt-token></td></tr>
+          <tr><td><span class="status status-400">400</span></td><td>Validation Error</td><td>Missing required fields or invalid data</td></tr>
+          <tr><td><span class="status status-401">401</span></td><td>Unauthorized</td><td>Invalid credentials or missing token</td></tr>
+          <tr><td><span class="status status-403">403</span></td><td>Forbidden</td><td>Insufficient role permissions</td></tr>
+          <tr><td><span class="status status-404">404</span></td><td>Not Found</td><td>Resource not found</td></tr>
+          <tr><td><span class="status status-409">409</span></td><td>Conflict</td><td>Duplicate entry or conflicting state</td></tr>
+          <tr><td><span class="status status-500">500</span></td><td>Internal Server Error</td><td>Server-side failure</td></tr>
         </tbody>
       </table>
-
-      <h3>Example Request</h3>
-      <div class="code-block">
-        <code><span class="string">curl</span> -X GET http://localhost:5000/api/me \<br>
-&nbsp;&nbsp;-H <span class="string">"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."</span></code>
-      </div>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"authenticated"</span>: <span class="string">true</span>,<br>
-&nbsp;&nbsp;<span class="param">"user"</span>: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"id"</span>: <span class="string">"abc123"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"name"</span>: <span class="string">"John Doe"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"phone"</span>: <span class="string">"+254712345678"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"role"</span>: <span class="string">"guard"</span><br>
-&nbsp;&nbsp;}<br>
-}</code>
-      </div>
-
-      <div class="response">
-        <span class="response-title">Status Codes:</span>
-        <span class="status status-200">200 OK</span>
-        <span class="status status-401">401 Unauthorized</span>
-      </div>
     </div>
 
-    <!-- Verify Token -->
-    <div class="endpoint" id="verify-token">
-      <span class="method post">POST</span>
-      <span class="path">/api/verify-token</span>
-      <span class="auth-badge">PUBLIC</span>
-      <p class="description">Verify if a JWT token is valid</p>
-      
-      <h3>Request Body</h3>
+    <!-- DATABASE -->
+    <div class="tab-content" id="tab-database">
+      <h2>Database — PostgreSQL</h2>
+      <p>PatrolLink uses <strong>PostgreSQL</strong> as its primary database for storing sessions and executing direct queries. User and content data is managed through Directus, which also uses PostgreSQL as its backing store.</p>
+
+      <h3>Schema Overview</h3>
+      <p>The database schema is managed by Directus and includes custom collections for PatrolLink-specific data. The <code>pg</code> library is used for direct PostgreSQL queries, primarily for session storage and admin dashboard queries.</p>
+
+      <h3>Key Tables / Collections</h3>
       <table>
-        <thead>
-          <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
-        </thead>
+        <thead><tr><th>Collection</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="param">token</td><td>string</td><td>Yes</td><td>JWT token to verify</td></tr>
+          <tr><td><code>users</code></td><td>User accounts with roles (guard, supervisor, admin), phone numbers, and organization codes</td></tr>
+          <tr><td><code>organizations</code></td><td>Organization records with invite codes, subscription tiers, and rates</td></tr>
+          <tr><td><code>assignments</code></td><td>Guard-to-location assignments with operating hours and areas</td></tr>
+          <tr><td><code>locations</code></td><td>Site locations with assigned areas linked to organizations</td></tr>
+          <tr><td><code>patrols</code></td><td>Patrol sessions with start/end times, status, and GPS route data</td></tr>
+          <tr><td><code>logs</code></td><td>Guard log entries with categories, descriptions, and optional images</td></tr>
+          <tr><td><code>notifications</code></td><td>Push notification records for admin alerts and guard updates</td></tr>
+          <tr><td><code>session</code></td><td>Express session store for web authentication</td></tr>
         </tbody>
       </table>
-
-      <h3>Example Request</h3>
-      <div class="code-block">
-        <code><span class="string">curl</span> -X POST http://localhost:5000/api/verify-token \<br>
-&nbsp;&nbsp;-H <span class="string">"Content-Type: application/json"</span> \<br>
-&nbsp;&nbsp;-d '{ <span class="param">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."</span> }'</code>
-      </div>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"valid"</span>: <span class="string">true</span>,<br>
-&nbsp;&nbsp;<span class="param">"user"</span>: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"id"</span>: <span class="string">"abc123"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"name"</span>: <span class="string">"John Doe"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"role"</span>: <span class="string">"guard"</span><br>
-&nbsp;&nbsp;}<br>
-}</code>
-      </div>
-
-      <div class="response">
-        <span class="response-title">Status Codes:</span>
-        <span class="status status-200">200 OK</span>
-        <span class="status status-400">400 Bad Request</span>
-        <span class="status status-401">401 Unauthorized</span>
-      </div>
     </div>
 
-    <h2 id="protected-routes">🛡️ Protected Routes</h2>
-    <p style="color: #94a3b8; margin-bottom: 20px;">
-      The following routes require authentication. Include the JWT token in the Authorization header.
-    </p>
+    <!-- CMS -->
+    <div class="tab-content" id="tab-cms">
+      <h2>CMS — Directus</h2>
+      <p><strong>Directus</strong> serves as the headless CMS layer, providing auto-generated REST APIs for CRUD operations on all data collections. It eliminates the need to build custom admin interfaces for data management while offering a powerful SDK for programmatic access.</p>
 
-    <!-- Admin Dashboard -->
-    <div class="endpoint" id="admin-dashboard">
-      <span class="method get">GET</span>
-      <span class="path">/api/admin/dashboard</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Admin dashboard data (requires any authenticated user)</p>
-      
-      <h3>Example Request</h3>
-      <div class="code-block">
-        <code><span class="string">curl</span> -X GET http://localhost:5000/api/admin/dashboard \<br>
-&nbsp;&nbsp;-H <span class="string">"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."</span></code>
-      </div>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"message"</span>: <span class="string">"Welcome to the admin dashboard"</span>,<br>
-&nbsp;&nbsp;<span class="param">"user"</span>: { <span class="param">"id"</span>: <span class="string">"abc123"</span>, <span class="param">"name"</span>: <span class="string">"John Doe"</span> },<br>
-&nbsp;&nbsp;<span class="param">"data"</span>: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"totalGuards"</span>: <span class="string">45</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"activeShifts"</span>: <span class="string">12</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"pendingReports"</span>: <span class="string">5</span><br>
-&nbsp;&nbsp;}<br>
-}</code>
-      </div>
+      <h3>Configuration</h3>
+      <ul>
+        <li>Directus is configured via <code>DIRECTUS_URL</code> and <code>DIRECTUS_TOKEN</code> environment variables</li>
+        <li>The server uses Directus's REST API for querying users, creating records, and managing content</li>
+        <li>A custom <code>query()</code> function wraps Directus API calls with consistent error handling</li>
+        <li>Directus provides the admin UI for manually managing users, content, and schema changes</li>
+      </ul>
     </div>
 
-    <h2 id="admin-management">🧭 Admin Management APIs</h2>
-    <p style="color: #94a3b8; margin-bottom: 20px;">
-      These endpoints are used by the admin dashboard to manage guards, assignments, and locations.
-      All are scoped to the authenticated admin's organization via <code>invite_code</code>.
-    </p>
+    <!-- DEPLOYMENT -->
+    <div class="tab-content" id="tab-deployment">
+      <h2>Environment Variables</h2>
+      <p>Create a <code>.env</code> file in the backend root with the following:</p>
+      <pre><code><span class="comment"># Server</span>
+APIPORT=5000
+NODE_ENV=development
 
-    <!-- Admin Guards -->
-    <div class="endpoint" id="admin-guards">
-      <span class="method get">GET</span>
-      <span class="path">/api/admin/guards</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">List all guards in the admin organization, enriched with latest assignment and patrol-derived online/last-seen data.</p>
+<span class="comment"># JWT Secret (change in production)</span>
+JWT_SECRET=your-super-secret-jwt-key
 
-      <h3>Response Fields (per guard)</h3>
-      <table>
-        <thead>
-          <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="param">id</td><td>string</td><td>Guard user ID</td></tr>
-          <tr><td class="param">first_name</td><td>string</td><td>Guard first name</td></tr>
-          <tr><td class="param">last_name</td><td>string</td><td>Guard last name</td></tr>
-          <tr><td class="param">phone</td><td>string</td><td>Guard phone number</td></tr>
-          <tr><td class="param">location</td><td>string</td><td>Resolved location name from latest assignment</td></tr>
-          <tr><td class="param">location_id</td><td>string</td><td>Location ID from latest assignment</td></tr>
-          <tr><td class="param">assigned_areas</td><td>string</td><td>Comma-separated assigned areas</td></tr>
-          <tr><td class="param">operating_hours_start</td><td>string</td><td>Assignment start time</td></tr>
-          <tr><td class="param">operating_hours_end</td><td>string</td><td>Assignment end time</td></tr>
-          <tr><td class="param">is_online</td><td>boolean</td><td><code>true</code> when latest patrol is active and not ended</td></tr>
-          <tr><td class="param">last_seen</td><td>string|null</td><td>Latest patrol <code>end_time</code> or fallback access time</td></tr>
-          <tr><td class="param">last_seen_display</td><td>string</td><td><code>"Online (Currently on patrol)"</code> when active, otherwise timestamp or <code>"Never"</code></td></tr>
-        </tbody>
-      </table>
+<span class="comment"># Directus Configuration</span>
+DIRECTUS_URL=http://your-directus-instance.com
+DIRECTUS_TOKEN=your-directus-static-token
 
-      <h3>Example Request</h3>
-      <div class="code-block">
-        <code><span class="string">curl</span> -X GET http://localhost:5000/api/admin/guards \<br>
-&nbsp;&nbsp;-H <span class="string">"Authorization: Bearer &lt;token&gt;"</span></code>
-      </div>
+<span class="comment"># PostgreSQL</span>
+DB_USER=postgres
+DB_HOST=localhost
+DB_NAME=omniwatch
+DB_PASSWORD=your-password
+DB_PORT=5432
+DB_SSL=false
 
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"guards"</span>: [<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"id"</span>: <span class="string">"f3a9..."</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"first_name"</span>: <span class="string">"Jane"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"last_name"</span>: <span class="string">"Doe"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"phone"</span>: <span class="string">"+2547..."</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"location"</span>: <span class="string">"Main Gate"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"location_id"</span>: <span class="string">"8b2a..."</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"is_online"</span>: <span class="string">true</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"last_seen_display"</span>: <span class="string">"Online (Currently on patrol)"</span><br>
-&nbsp;&nbsp;&nbsp;&nbsp;}<br>
-&nbsp;&nbsp;]<br>
-}</code>
-      </div>
+<span class="comment"># CORS Allowed Origins (optional, comma-separated)</span>
+CORS_ALLOWED_ORIGINS=http://localhost:5000,http://localhost:8081</code></pre>
+
+      <h3>Running the App</h3>
+      <pre><code><span class="comment"># Install dependencies</span>
+npm install
+
+<span class="comment"># Development mode with auto-reload</span>
+npm run dev
+
+<span class="comment"># Production mode with PM2</span>
+npm run prod
+
+<span class="comment"># Or start directly</span>
+npm start</code></pre>
     </div>
-
-    <!-- Admin Remove Guard -->
-    <div class="endpoint" id="admin-remove-guard">
-      <span class="method delete">DELETE</span>
-      <span class="path">/api/admin/guards/:id</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Remove a guard from the organization and cascade-delete related records by <code>user_id</code> from assignments, logs, and patrols.</p>
-
-      <h3>Path Params</h3>
-      <table>
-        <thead>
-          <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="param">id</td><td>string</td><td>Yes</td><td>Guard user ID</td></tr>
-        </tbody>
-      </table>
-
-      <h3>Example Request</h3>
-      <div class="code-block">
-        <code><span class="string">curl</span> -X DELETE http://localhost:5000/api/admin/guards/f3a9... \<br>
-&nbsp;&nbsp;-H <span class="string">"Authorization: Bearer &lt;token&gt;"</span></code>
-      </div>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"message"</span>: <span class="string">"Guard removed successfully"</span>,<br>
-&nbsp;&nbsp;<span class="param">"deleted"</span>: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"assignments"</span>: <span class="string">2</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"logs"</span>: <span class="string">8</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"patrols"</span>: <span class="string">5</span><br>
-&nbsp;&nbsp;}<br>
-}</code>
-      </div>
-
-      <div class="response">
-        <span class="response-title">Status Codes:</span>
-        <span class="status status-200">200 OK</span>
-        <span class="status status-400">400 Bad Request</span>
-        <span class="status status-401">401 Unauthorized</span>
-        <span class="status status-404">404 Not Found</span>
-        <span class="status status-500">500 Internal Server Error</span>
-      </div>
-    </div>
-
-    <!-- Admin Create Assignment -->
-    <div class="endpoint" id="admin-create-assignment">
-      <span class="method post">POST</span>
-      <span class="path">/api/admin/assignments</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Create a new assignment for a guard in the same organization.</p>
-
-      <h3>Request Body</h3>
-      <table>
-        <thead>
-          <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="param">user_id</td><td>string</td><td>Yes</td><td>Guard user ID</td></tr>
-          <tr><td class="param">location</td><td>string</td><td>Yes</td><td>Location ID</td></tr>
-          <tr><td class="param">assigned_areas</td><td>string</td><td>Yes</td><td>Comma-separated areas/checkpoints</td></tr>
-          <tr><td class="param">start_time</td><td>string</td><td>Yes</td><td>Assignment start time (e.g., <code>09:00</code>)</td></tr>
-          <tr><td class="param">end_time</td><td>string</td><td>Yes</td><td>Assignment end time (e.g., <code>17:00</code>)</td></tr>
-        </tbody>
-      </table>
-
-      <h3>Example Request</h3>
-      <div class="code-block">
-        <code><span class="string">curl</span> -X POST http://localhost:5000/api/admin/assignments \<br>
-&nbsp;&nbsp;-H <span class="string">"Authorization: Bearer &lt;token&gt;"</span> \<br>
-&nbsp;&nbsp;-H <span class="string">"Content-Type: application/json"</span> \<br>
-&nbsp;&nbsp;-d '{<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"user_id"</span>: <span class="string">"f3a9..."</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"location"</span>: <span class="string">"8b2a..."</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"assigned_areas"</span>: <span class="string">"Gate A, Lobby"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"start_time"</span>: <span class="string">"09:00"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"end_time"</span>: <span class="string">"17:00"</span><br>
-&nbsp;&nbsp;}'</code>
-      </div>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"message"</span>: <span class="string">"Assignment created successfully"</span>,<br>
-&nbsp;&nbsp;<span class="param">"assignment"</span>: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"id"</span>: <span class="string">"a7bc..."</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"user_id"</span>: <span class="string">"f3a9..."</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"location"</span>: <span class="string">"8b2a..."</span><br>
-&nbsp;&nbsp;}<br>
-}</code>
-      </div>
-    </div>
-
-    <!-- Admin Locations List -->
-    <div class="endpoint" id="admin-locations-list">
-      <span class="method get">GET</span>
-      <span class="path">/api/admin/locations</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">List all locations in the authenticated admin organization.</p>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"locations"</span>: [<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"id"</span>: <span class="string">"8b2a..."</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"name"</span>: <span class="string">"Main Gate"</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"assigned_areas"</span>: <span class="string">"Gate A, Gate B"</span><br>
-&nbsp;&nbsp;&nbsp;&nbsp;}<br>
-&nbsp;&nbsp;]<br>
-}</code>
-      </div>
-    </div>
-
-    <!-- Admin Locations Create -->
-    <div class="endpoint" id="admin-locations-create">
-      <span class="method post">POST</span>
-      <span class="path">/api/admin/locations</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Create a location for the admin organization.</p>
-
-      <h3>Request Body</h3>
-      <table>
-        <thead>
-          <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="param">name</td><td>string</td><td>Yes</td><td>Location name</td></tr>
-          <tr><td class="param">assigned_areas</td><td>string</td><td>No</td><td>Comma-separated areas</td></tr>
-        </tbody>
-      </table>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"message"</span>: <span class="string">"Location created successfully"</span>,<br>
-&nbsp;&nbsp;<span class="param">"location"</span>: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"id"</span>: <span class="string">"8b2a..."</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"name"</span>: <span class="string">"Main Gate"</span><br>
-&nbsp;&nbsp;}<br>
-}</code>
-      </div>
-    </div>
-
-    <!-- Admin Locations Update -->
-    <div class="endpoint" id="admin-locations-update">
-      <span class="method patch">PATCH</span>
-      <span class="path">/api/admin/locations/:id</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Update location fields (<code>name</code> and/or <code>assigned_areas</code>) within the admin organization.</p>
-
-      <h3>Request Body</h3>
-      <table>
-        <thead>
-          <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="param">name</td><td>string</td><td>No</td><td>Updated location name (cannot be empty)</td></tr>
-          <tr><td class="param">assigned_areas</td><td>string</td><td>No</td><td>Updated areas list</td></tr>
-        </tbody>
-      </table>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"message"</span>: <span class="string">"Location updated successfully"</span>,<br>
-&nbsp;&nbsp;<span class="param">"location"</span>: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"id"</span>: <span class="string">"8b2a..."</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="param">"name"</span>: <span class="string">"Rear Gate"</span><br>
-&nbsp;&nbsp;}<br>
-}</code>
-      </div>
-    </div>
-
-    <!-- Admin Locations Delete -->
-    <div class="endpoint" id="admin-locations-delete">
-      <span class="method delete">DELETE</span>
-      <span class="path">/api/admin/locations/:id</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Delete a location in the admin organization.</p>
-
-      <h3>Example Response</h3>
-      <div class="code-block">
-        <code>{<br>
-&nbsp;&nbsp;<span class="param">"message"</span>: <span class="string">"Location deleted successfully"</span>,<br>
-&nbsp;&nbsp;<span class="param">"id"</span>: <span class="string">"8b2a..."</span><br>
-}</code>
-      </div>
-    </div>
-
-    <h2 id="guard-operations">🛰️ Guard App APIs</h2>
-    <p style="color: #94a3b8; margin-bottom: 20px;">
-      Endpoints used by the guard page for assignments, patrol lifecycle, location tracking, and logs.
-    </p>
-
-    <div class="endpoint" id="guard-my-assignments-get">
-      <span class="method get">GET</span>
-      <span class="path">/api/my-assignments</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Fetch assignments for the authenticated guard.</p>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{<br>
-&nbsp;&nbsp;<span class="param">"assignments"</span>: [<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="param">"id"</span>: <span class="string">"asg1"</span>, <span class="param">"user_id"</span>: <span class="string">"u1"</span>, <span class="param">"location"</span>: <span class="string">"loc1"</span>, <span class="param">"assigned_areas"</span>: <span class="string">"Gate A, Lobby"</span>, <span class="param">"start_time"</span>: <span class="string">"09:00"</span>, <span class="param">"end_time"</span>: <span class="string">"17:00"</span> }<br>
-&nbsp;&nbsp;]<br>
-}</code></div>
-    </div>
-
-    <div class="endpoint" id="guard-my-assignments-put">
-      <span class="method put">PUT</span>
-      <span class="path">/api/my-assignments</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Update the authenticated guard's assignment details.</p>
-      <h3>Request Body</h3>
-      <table>
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="param">location</td><td>string</td><td>Yes</td><td>Location ID</td></tr>
-          <tr><td class="param">assigned_areas</td><td>string</td><td>Yes</td><td>Comma-separated areas</td></tr>
-          <tr><td class="param">start_time</td><td>string</td><td>Yes</td><td>Shift start time</td></tr>
-          <tr><td class="param">end_time</td><td>string</td><td>Yes</td><td>Shift end time</td></tr>
-        </tbody>
-      </table>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"message"</span>: <span class="string">"Assignment updated successfully"</span> }</code></div>
-    </div>
-
-    <div class="endpoint" id="guard-locations">
-      <span class="method get">GET</span>
-      <span class="path">/api/locations</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Fetch all locations in the authenticated user's organization.</p>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{<br>
-&nbsp;&nbsp;<span class="param">"locations"</span>: [<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="param">"id"</span>: <span class="string">"loc1"</span>, <span class="param">"name"</span>: <span class="string">"Main Gate"</span>, <span class="param">"assigned_areas"</span>: <span class="string">"Gate A, Gate B"</span> }<br>
-&nbsp;&nbsp;]<br>
-}</code></div>
-    </div>
-
-    <div class="endpoint" id="guard-patrols-get">
-      <span class="method get">GET</span>
-      <span class="path">/api/patrols</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Fetch guard patrol history.</p>
-      <h3>Query Params</h3>
-      <table>
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="param">limit</td><td>number</td><td>No</td><td>Max records (default: 10)</td></tr>
-          <tr><td class="param">sort</td><td>string</td><td>No</td><td>Sort order (default: <code>-start_time</code>)</td></tr>
-        </tbody>
-      </table>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"patrols"</span>: [ { <span class="param">"id"</span>: <span class="string">"p1"</span>, <span class="param">"status"</span>: <span class="string">"active"</span> } ] }</code></div>
-    </div>
-
-    <div class="endpoint" id="guard-patrols-post">
-      <span class="method post">POST</span>
-      <span class="path">/api/patrols</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Start a patrol session.</p>
-      <h3>Request Body</h3>
-      <table>
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="param">start_time</td><td>string</td><td>Yes</td><td>Patrol start timestamp</td></tr>
-          <tr><td class="param">user_id</td><td>string</td><td>Yes</td><td>Guard user ID</td></tr>
-          <tr><td class="param">organization_id</td><td>string</td><td>No</td><td>Organization ID</td></tr>
-          <tr><td class="param">duration</td><td>number</td><td>No</td><td>Initial duration in minutes</td></tr>
-          <tr><td class="param">end_time</td><td>string</td><td>No</td><td>End time if already completed</td></tr>
-          <tr><td class="param">map</td><td>string</td><td>No</td><td>Serialized path data</td></tr>
-          <tr><td class="param">location_data</td><td>array</td><td>No</td><td>Location points (alternative to <code>map</code>)</td></tr>
-        </tbody>
-      </table>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"message"</span>: <span class="string">"Patrol started successfully"</span>, <span class="param">"data"</span>: { <span class="param">"id"</span>: <span class="string">"p1"</span>, <span class="param">"status"</span>: <span class="string">"active"</span> } }</code></div>
-    </div>
-
-    <div class="endpoint" id="guard-patrols-patch">
-      <span class="method patch">PATCH</span>
-      <span class="path">/api/patrols/:id</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Update patrol details, including ending a patrol by setting <code>end_time</code> and optionally <code>status</code>.</p>
-      <h3>Request Body</h3>
-      <table>
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="param">duration</td><td>number</td><td>No</td><td>Patrol duration in minutes</td></tr>
-          <tr><td class="param">end_time</td><td>string</td><td>No</td><td>Patrol end timestamp</td></tr>
-          <tr><td class="param">map</td><td>string</td><td>No</td><td>Serialized route data</td></tr>
-          <tr><td class="param">location_data</td><td>array</td><td>No</td><td>Route points (mapped to <code>map</code>)</td></tr>
-          <tr><td class="param">status</td><td>string</td><td>No</td><td>Patrol state (e.g., active/completed)</td></tr>
-        </tbody>
-      </table>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"message"</span>: <span class="string">"Patrol updated successfully"</span>, <span class="param">"data"</span>: { <span class="param">"id"</span>: <span class="string">"p1"</span> } }</code></div>
-    </div>
-
-    <div class="endpoint" id="guard-patrols-location-patch">
-      <span class="method patch">PATCH</span>
-      <span class="path">/api/patrols/:id/location</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Append incremental GPS points to an active patrol route.</p>
-      <h3>Request Body</h3>
-      <table>
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="param">location_data</td><td>array</td><td>Yes</td><td>Array of points: <code>{ latitude, longitude, timestamp }</code></td></tr>
-        </tbody>
-      </table>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"message"</span>: <span class="string">"Location updated successfully"</span>, <span class="param">"points_count"</span>: <span class="string">120</span> }</code></div>
-    </div>
-
-    <div class="endpoint" id="guard-logs-get">
-      <span class="method get">GET</span>
-      <span class="path">/api/logs</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Fetch logs created by the authenticated guard.</p>
-      <h3>Query Params</h3>
-      <table>
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="param">limit</td><td>number</td><td>No</td><td>Max records (default: 50)</td></tr>
-          <tr><td class="param">sort</td><td>string</td><td>No</td><td>Sort order (default: <code>-timestamp</code>)</td></tr>
-        </tbody>
-      </table>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"logs"</span>: [ { <span class="param">"id"</span>: <span class="string">"l1"</span>, <span class="param">"title"</span>: <span class="string">"Checkpoint"</span> } ] }</code></div>
-    </div>
-
-    <div class="endpoint" id="guard-logs-post">
-      <span class="method post">POST</span>
-      <span class="path">/api/logs</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Create a new guard log entry with optional images and patrol linkage.</p>
-      <h3>Request Body</h3>
-      <table>
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="param">title</td><td>string</td><td>Yes</td><td>Log title</td></tr>
-          <tr><td class="param">description</td><td>string</td><td>Yes</td><td>Log details</td></tr>
-          <tr><td class="param">category</td><td>string</td><td>Yes</td><td>One of: activity, unusual, incident, checkpoint, other</td></tr>
-          <tr><td class="param">images</td><td>string|array</td><td>No</td><td>Image data/URIs (commonly JSON string)</td></tr>
-          <tr><td class="param">patrol_id</td><td>string</td><td>No</td><td>Related patrol ID</td></tr>
-        </tbody>
-      </table>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"message"</span>: <span class="string">"Log created successfully"</span>, <span class="param">"data"</span>: { <span class="param">"id"</span>: <span class="string">"l1"</span> } }</code></div>
-    </div>
-
-    <h2 id="additional-apis">🧩 Additional APIs</h2>
-
-    <div class="endpoint" id="assignments-list">
-      <span class="method get">GET</span>
-      <span class="path">/api/assignments</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Fetch assignment records from backend storage.</p>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"assignments"</span>: [ { <span class="param">"id"</span>: <span class="string">"asg1"</span> } ] }</code></div>
-    </div>
-
-    <div class="endpoint" id="org-invite-codes">
-      <span class="method get">GET</span>
-      <span class="path">/api/organizations/invite-codes</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Return invite codes for registered organizations.</p>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"inviteCodes"</span>: [<span class="string">"ORG001"</span>, <span class="string">"ORG002"</span>] }</code></div>
-    </div>
-
-    <div class="endpoint" id="org-validate-invite-code">
-      <span class="method post">POST</span>
-      <span class="path">/api/organizations/validate-invite-code</span>
-      <span class="auth-badge">PUBLIC</span>
-      <p class="description">Validate whether an organization invite code exists.</p>
-      <h3>Request Body</h3>
-      <table>
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="param">inviteCode</td><td>string</td><td>Yes</td><td>Organization invite code</td></tr>
-        </tbody>
-      </table>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"valid"</span>: <span class="string">true</span>, <span class="param">"message"</span>: <span class="string">"Invite code is valid"</span> }</code></div>
-    </div>
-
-    <div class="endpoint" id="admin-patrols-feed">
-      <span class="method get">GET</span>
-      <span class="path">/api/admin/patrols</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Admin patrol feed across all guards in organization, enriched with guard name and checkpoints.</p>
-      <h3>Query Params</h3>
-      <table>
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="param">limit</td><td>number</td><td>No</td><td>Max records (default: 50)</td></tr>
-          <tr><td class="param">sort</td><td>string</td><td>No</td><td>Sort by timestamp (default: <code>-start_time</code>)</td></tr>
-        </tbody>
-      </table>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"patrols"</span>: [ { <span class="param">"id"</span>: <span class="string">"p1"</span>, <span class="param">"guard_name"</span>: <span class="string">"Jane Doe"</span> } ] }</code></div>
-    </div>
-
-    <div class="endpoint" id="admin-logs-feed">
-      <span class="method get">GET</span>
-      <span class="path">/api/admin/logs</span>
-      <span class="auth-badge">PROTECTED</span>
-      <p class="description">Admin logs feed across all guards in organization with location resolution.</p>
-      <h3>Query Params</h3>
-      <table>
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="param">limit</td><td>number</td><td>No</td><td>Max records (default: 50)</td></tr>
-          <tr><td class="param">sort</td><td>string</td><td>No</td><td>Sort by timestamp (default: <code>-timestamp</code>)</td></tr>
-        </tbody>
-      </table>
-      <h3>Example Response</h3>
-      <div class="code-block"><code>{ <span class="param">"logs"</span>: [ { <span class="param">"id"</span>: <span class="string">"l1"</span>, <span class="param">"location"</span>: <span class="string">"Main Gate"</span> } ] }</code></div>
-    </div>
-
-    <h2 id="error-handling">⚠️ Error Handling</h2>
-    <p style="color: #94a3b8; margin-bottom: 20px;">
-      All error responses follow a consistent format:
-    </p>
-    
-    <div class="code-block">
-      <code>{<br>
-&nbsp;&nbsp;<span class="param">"error"</span>: <span class="string">"Error Type"</span>,<br>
-&nbsp;&nbsp;<span class="param">"message"</span>: <span class="string">"Human readable error message"</span><br>
-}</code>
-    </div>
-
-    <h3>Common Error Codes</h3>
-    <table>
-      <thead>
-        <tr><th>Status</th><th>Error</th><th>Description</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>400</td><td>Validation Error</td><td>Missing required fields or invalid data</td></tr>
-        <tr><td>401</td><td>Unauthorized</td><td>Invalid credentials or no token provided</td></tr>
-        <tr><td>403</td><td>Forbidden</td><td>Access denied for this resource</td></tr>
-        <tr><td>409</td><td>Conflict</td><td>User already exists (duplicate entry)</td></tr>
-        <tr><td>500</td><td>Internal Server Error</td><td>Server-side error</td></tr>
-      </tbody>
-    </table>
-
-    <h2 id="frontend-integration">📱 Frontend Integration</h2>
-    
-    <h3>React Native / Expo Example</h3>
-    <div class="code-block">
-      <code><span class="comment">// Login Example</span><br>
-<span class="param">const</span> login = <span class="keyword">async</span> (phone, password) => {<br>
-&nbsp;&nbsp;<span class="param">const</span> response = <span class="keyword">await</span> fetch(<span class="string">'http://localhost:5000/api/login'</span>, {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;method: <span class="string">'POST'</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;headers: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">'Content-Type'</span>: <span class="string">'application/json'</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;},<br>
-&nbsp;&nbsp;&nbsp;&nbsp;body: JSON.stringify({ phone, password }),<br>
-&nbsp;&nbsp;});<br>
-&nbsp;&nbsp;<span class="param">const</span> data = <span class="keyword">await</span> response.json();<br>
-&nbsp;&nbsp;<span class="keyword">if</span> (data.token) {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// Store token securely</span><br>
-&nbsp;&nbsp;&nbsp;&nbsp;AsyncStorage.setItem(<span class="string">'token'</span>, data.token);<br>
-&nbsp;&nbsp;}<br>
-&nbsp;&nbsp;<span class="keyword">return</span> data;<br>
-};<br><br>
-<span class="comment">// Protected API Call</span><br>
-<span class="param">const</span> getDashboard = <span class="keyword">async</span> () => {<br>
-&nbsp;&nbsp;<span class="param">const</span> token = <span class="keyword">await</span> AsyncStorage.getItem(<span class="string">'token'</span>);<br>
-&nbsp;&nbsp;<span class="param">const</span> response = <span class="keyword">await</span> fetch(<span class="string">'http://localhost:5000/api/admin/dashboard'</span>, {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;headers: {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">'Authorization'</span>: <span class="string">`Bearer ${token}`</span>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;},<br>
-&nbsp;&nbsp;});<br>
-&nbsp;&nbsp;<span class="keyword">return</span> response.json();<br>
-};</code>
-    </div>
-
-    <h2 id="environment-variables">🔧 Environment Variables</h2>
-    <p style="color: #94a3b8; margin-bottom: 20px;">
-      Create a <code>.env</code> file in the backend root with the following variables:
-    </p>
-    
-    <div class="code-block">
-      <code><span class="comment"># Server</span><br>
-APIPORT=5000<br>
-NODE_ENV=development<br><br>
-<span class="comment"># JWT Secret (change this in production!)</span><br>
-JWT_SECRET=your-super-secret-jwt-key-change-in-production<br><br>
-<span class="comment"># Directus Configuration</span><br>
-DIRECTUS_URL=http://your-directus-instance.com<br>
-DIRECTUS_TOKEN=your-directus-static-token<br><br>
-<span class="comment"># PostgreSQL Database</span><br>
-DB_USER=postgres<br>
-DB_HOST=localhost<br>
-DB_NAME=omniwatch<br>
-DB_PASSWORD=your-password<br>
-DB_PORT=5432<br>
-DB_SSL=false</code>
-    </div>
-
-    <footer>
-      <p>PatrolLink API v1.0.0 | Built with Express.js & Directus</p>
-      <p style="margin-top: 10px;">
-        <a href="/" style="color: #3b82f6; text-decoration: none;">← Back to Home</a>
-      </p>
-    </footer>
   </div>
+
+  <script>
+    const tabs = document.querySelectorAll('.sidebar-item[data-tab]');
+    const contents = {};
+
+    tabs.forEach(item => {
+      const tab = item.dataset.tab;
+      const el = document.getElementById('tab-' + tab);
+      if (el) contents[tab] = el;
+
+      item.addEventListener('click', () => {
+        const group = item.closest('.sidebar-children');
+        if (group) {
+          const parentHeader = document.querySelector(`.sidebar-item.group[data-group="${group.dataset.group}"]`);
+          if (parentHeader) parentHeader.classList.add('active');
+        }
+
+        tabs.forEach(t => t.classList.remove('active'));
+        item.classList.add('active');
+
+        Object.values(contents).forEach(c => c.classList.remove('active'));
+        if (contents[tab]) contents[tab].classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.sidebar-item.group').forEach(header => {
+      header.addEventListener('click', () => {
+        const group = header.dataset.group;
+        const content = document.querySelector(`.sidebar-children[data-group="${group}"]`);
+        const chevron = header.querySelector('.chevron');
+        content.classList.toggle('open');
+        chevron.classList.toggle('open');
+      });
+    });
+  </script>
 </body>
 </html>
