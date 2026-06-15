@@ -138,7 +138,7 @@ app.set('view engine', 'ejs');
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true, limit: '5mb' }));
 app.use(bodyParser.json({ limit: '5mb' }));
-app.use((req, res, next) => {
+app.use('/api', (req, res, next) => {
   cors({
     origin: (origin, callback) => {
       if (allowedOrigins.includes(origin)) return callback(null, true);
