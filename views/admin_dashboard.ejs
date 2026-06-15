@@ -151,6 +151,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .phone-visible{color:var(--text)}
 .toggle-phone{background:none;border:none;color:var(--accent);cursor:pointer;font-size:10px;padding:2px 6px;border-radius:4px}
 .toggle-phone:hover{background:rgba(59,130,246,.1)}
+.filter-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filter-bar input,.filter-bar select{padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:12px;outline:none}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--accent)}
+.filter-bar input{flex:1;min-width:160px}
+.filter-bar label{font-size:11px;color:var(--muted);white-space:nowrap}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 </style>
@@ -233,6 +238,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
             <span><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Supervisors</span>
             <span id="supervisorCount" style="font-size:12px;color:var(--muted)"></span>
           </div>
+          <div class="filter-bar">
+            <input type="text" id="supSearch" placeholder="Search by name...">
+            <label>Status</label>
+            <select id="supStatusFilter"><option value="">All</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+            <label>Suspended</label>
+            <select id="supSuspendedFilter"><option value="">All</option><option value="true">Yes</option><option value="false">No</option></select>
+          </div>
           <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Status</th><th>Suspended</th><th>Last Access</th></tr></thead><tbody id="supervisorTableBody"><tr><td colspan="5" class="empty">Select an organization above</td></tr></tbody></table></div>
         </div>
       </div>
@@ -244,6 +256,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
             <span><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Guards</span>
             <span id="guardCount" style="font-size:12px;color:var(--muted)"></span>
           </div>
+          <div class="filter-bar">
+            <input type="text" id="guardSearch" placeholder="Search by name...">
+            <label>Status</label>
+            <select id="guardStatusFilter"><option value="">All</option><option value="On Patrol">On Patrol</option><option value="Inactive">Inactive</option></select>
+            <label>Suspended</label>
+            <select id="guardSuspendedFilter"><option value="">All</option><option value="true">Yes</option><option value="false">No</option></select>
+          </div>
           <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Location</th><th>Areas</th><th>Hours</th><th>Status</th><th>Suspended</th><th>Last Access</th></tr></thead><tbody id="guardTableBody"><tr><td colspan="8" class="empty">Select an organization above</td></tr></tbody></table></div>
         </div>
       </div>
@@ -253,6 +272,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="section">
           <div class="section-header">
             <span><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Payments</span>
+          </div>
+          <div class="filter-bar">
+            <input type="text" id="paySearch" placeholder="Search by amount or period...">
+            <label>Status</label>
+            <select id="payStatusFilter"><option value="">All</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option></select>
           </div>
           <div id="paymentList"></div>
         </div>
@@ -310,6 +334,9 @@ let pendingPaymentId = null;
 let phoneRevealed = {};
 let orgList = [];
 let selectedOrgId = '';
+let supData = [];
+let guardData = [];
+let payData = [];
 
 // Tab switching
 document.querySelectorAll('.nav-item').forEach(btn => {
@@ -459,79 +486,130 @@ function renderSingleOrgDashboard(d) {
     </div>`;
 }
 
+function renderSupervisors() {
+  const tbody = document.getElementById('supervisorTableBody');
+  const search = (document.getElementById('supSearch').value || '').toLowerCase();
+  const statusFilter = document.getElementById('supStatusFilter').value;
+  const suspendedFilter = document.getElementById('supSuspendedFilter').value;
+  let filtered = supData.filter(s => {
+    const name = `${s.first_name||''} ${s.last_name||''}`.toLowerCase();
+    if (search && !name.includes(search)) return false;
+    if (statusFilter && (s.status||'inactive') !== statusFilter) return false;
+    if (suspendedFilter !== '') {
+      const sus = isSuspended(s.suspended);
+      if (suspendedFilter === 'true' && !sus) return false;
+      if (suspendedFilter === 'false' && sus) return false;
+    }
+    return true;
+  });
+  document.getElementById('supervisorCount').textContent = `${filtered.length} of ${supData.length}`;
+  document.getElementById('supervisorBadge').textContent = supData.length;
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No supervisors match filters</td></tr>'; return; }
+  tbody.innerHTML = filtered.map(s => `<tr class="clickable-row" data-user-id="${s.id}" data-user-name="${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}" data-user-status="${s.status||'inactive'}" data-user-suspended="${isSuspended(s.suspended)}">
+    <td><strong>${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}</strong></td>
+    <td><span class="phone-${phoneRevealed[s.id]?'visible':'masked'}">${phoneRevealed[s.id]?escapeHtml(s.phone_raw||''):(s.phone||'—')}</span> <button class="toggle-phone" data-guard-id="${s.id}">${phoneRevealed[s.id]?'Hide':'Show'}</button></td>
+    <td><span class="badge-tag ${isSuspended(s.suspended)?'badge-suspended':s.status==='active'?'badge-active':'badge-inactive'}">${isSuspended(s.suspended)?'Suspended':s.status||'inactive'}</span></td>
+    <td style="font-size:12px">${isSuspended(s.suspended) ? '<span style="color:var(--red)">Yes</span>' : '<span style="color:var(--green)">No</span>'}</td>
+    <td style="font-size:11px;color:var(--muted)">${s.last_access ? new Date(s.last_access).toLocaleString() : 'Never'}</td>
+  </tr>`).join('');
+}
+
 async function loadSupervisors() {
   const tbody = document.getElementById('supervisorTableBody');
-  if (!selectedOrgId) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Select an organization above</td></tr>'; return; }
+  if (!selectedOrgId) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Select an organization above</td></tr>'; supData = []; renderSupervisors(); return; }
   tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading...</td></tr>';
   try {
     const r = await fetch(`${API}/supervisors${orgQuery()}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
     const d = await r.json();
-    const sups = d.supervisors || [];
-    document.getElementById('supervisorCount').textContent = `${sups.length} total`;
-    document.getElementById('supervisorBadge').textContent = sups.length;
-    if (!sups.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No supervisors</td></tr>'; return; }
-    tbody.innerHTML = sups.map(s => `<tr class="clickable-row" data-user-id="${s.id}" data-user-name="${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}" data-user-status="${s.status||'inactive'}" data-user-suspended="${isSuspended(s.suspended)}">
-      <td><strong>${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}</strong></td>
-      <td><span class="phone-${phoneRevealed[s.id]?'visible':'masked'}">${phoneRevealed[s.id]?escapeHtml(s.phone_raw||''):(s.phone||'—')}</span> <button class="toggle-phone" data-guard-id="${s.id}">${phoneRevealed[s.id]?'Hide':'Show'}</button></td>
-      <td><span class="badge-tag ${isSuspended(s.suspended)?'badge-suspended':s.status==='active'?'badge-active':'badge-inactive'}">${isSuspended(s.suspended)?'Suspended':s.status||'inactive'}</span></td>
-      <td style="font-size:12px">${isSuspended(s.suspended) ? '<span style="color:var(--red)">Yes</span>' : '<span style="color:var(--green)">No</span>'}</td>
-      <td style="font-size:11px;color:var(--muted)">${s.last_access ? new Date(s.last_access).toLocaleString() : 'Never'}</td>
-    </tr>`).join('');
-  } catch(e) {     tbody.innerHTML = '<tr><td colspan="5" class="empty">Failed to load</td></tr>'; }
+    supData = d.supervisors || [];
+    renderSupervisors();
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Failed to load</td></tr>'; }
+}
+
+function renderGuards() {
+  const tbody = document.getElementById('guardTableBody');
+  const search = (document.getElementById('guardSearch').value || '').toLowerCase();
+  const statusFilter = document.getElementById('guardStatusFilter').value;
+  const suspendedFilter = document.getElementById('guardSuspendedFilter').value;
+  let filtered = guardData.filter(g => {
+    const name = `${g.first_name||''} ${g.last_name||''}`.toLowerCase();
+    if (search && !name.includes(search)) return false;
+    if (statusFilter && (g.patrol_status||'Inactive') !== statusFilter) return false;
+    if (suspendedFilter !== '') {
+      const sus = isSuspended(g.suspended);
+      if (suspendedFilter === 'true' && !sus) return false;
+      if (suspendedFilter === 'false' && sus) return false;
+    }
+    return true;
+  });
+  document.getElementById('guardCount').textContent = `${filtered.length} of ${guardData.length}`;
+  document.getElementById('guardBadge').textContent = guardData.length;
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No guards match filters</td></tr>'; return; }
+  tbody.innerHTML = filtered.map(g => `<tr class="clickable-row" data-user-id="${g.id}" data-user-name="${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}" data-user-status="${g.patrol_status||'Inactive'}" data-user-suspended="${isSuspended(g.suspended)}">
+    <td><strong>${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}</strong></td>
+    <td>${g.phone||'—'}</td>
+    <td>${escapeHtml(g.location||'—')}</td>
+    <td style="font-size:11px">${escapeHtml(g.assigned_areas||'—')}</td>
+    <td style="font-size:11px;color:var(--muted)">${g.operating_hours||'—'}</td>
+    <td><span class="badge-tag ${g.patrol_status==='On Patrol'?'badge-onpatrol':'badge-inactive'}">${g.patrol_status||'Inactive'}</span></td>
+    <td style="font-size:12px">${isSuspended(g.suspended) ? '<span style="color:var(--red)">Yes</span>' : '<span style="color:var(--green)">No</span>'}</td>
+    <td style="font-size:11px;color:var(--muted)">${g.last_access?new Date(g.last_access).toLocaleString():'—'}</td>
+  </tr>`).join('');
 }
 
 async function loadGuards() {
   const tbody = document.getElementById('guardTableBody');
-  if (!selectedOrgId) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Select an organization above</td></tr>'; return; }
+  if (!selectedOrgId) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Select an organization above</td></tr>'; guardData = []; renderGuards(); return; }
   tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading...</td></tr>';
   try {
     const r = await fetch(`${API}/guards${orgQuery()}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
     const d = await r.json();
-    const guards = d.guards || [];
-    document.getElementById('guardCount').textContent = `${guards.length} total`;
-    document.getElementById('guardBadge').textContent = guards.length;
-    if (!guards.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No guards</td></tr>'; return; }
-    tbody.innerHTML = guards.map(g => `<tr class="clickable-row" data-user-id="${g.id}" data-user-name="${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}" data-user-status="${g.patrol_status||'Inactive'}" data-user-suspended="${isSuspended(g.suspended)}">
-      <td><strong>${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}</strong></td>
-      <td>${g.phone||'—'}</td>
-      <td>${escapeHtml(g.location||'—')}</td>
-      <td style="font-size:11px">${escapeHtml(g.assigned_areas||'—')}</td>
-      <td style="font-size:11px;color:var(--muted)">${g.operating_hours||'—'}</td>
-      <td><span class="badge-tag ${g.patrol_status==='On Patrol'?'badge-onpatrol':'badge-inactive'}">${g.patrol_status||'Inactive'}</span></td>
-      <td style="font-size:12px">${isSuspended(g.suspended) ? '<span style="color:var(--red)">Yes</span>' : '<span style="color:var(--green)">No</span>'}</td>
-      <td style="font-size:11px;color:var(--muted)">${g.last_access?new Date(g.last_access).toLocaleString():'—'}</td>
-    </tr>`).join('');
+    guardData = d.guards || [];
+    renderGuards();
   } catch(e) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Failed to load</td></tr>'; }
+}
+
+function renderPayments() {
+  const container = document.getElementById('paymentList');
+  const search = (document.getElementById('paySearch').value || '').toLowerCase();
+  const statusFilter = document.getElementById('payStatusFilter').value;
+  let filtered = payData.filter(p => {
+    const period = `${fmtDate(p.period_start)} ${fmtDate(p.period_end)} ${fmt(p.amount_due)}`.toLowerCase();
+    if (search && !period.includes(search)) return false;
+    if (statusFilter && p.status !== statusFilter) return false;
+    return true;
+  });
+  document.getElementById('paymentBadge').textContent = filtered.filter(p=>p.status!=='paid').length;
+  if (!filtered.length) { container.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><p>No payments match filters</p></div>'; return; }
+  container.innerHTML = filtered.map(p => {
+    const sc = p.status;
+    return `<div class="pay-item ${sc}">
+      <div class="pay-left">
+        <svg viewBox="0 0 24 24" fill="none" stroke="${sc==='paid'?'#22c55e':sc==='overdue'?'#ef4444':'#f59e0b'}" stroke-width="2" style="width:18px;height:18px">${sc==='paid'?'<polyline points="20 6 9 17 4 12"/>':sc==='overdue'?'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>':'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'}</svg>
+        <div class="pay-info"><span class="pay-org">${fmtDate(p.period_start)} - ${fmtDate(p.period_end)}</span><span class="pay-period">Due: ${fmtDate(p.due_date)}</span></div>
+      </div>
+      <div class="pay-right">
+        <span class="pay-amt">${fmt(p.amount_due)}/= </span>
+        <span class="pay-badge ${sc}">${p.status}</span>
+        ${sc !== 'paid' ? `<button class="btn btn-success btn-sm mark-paid-btn" data-payment-id="${p.id}" data-amount="${p.amount_due||0}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Pay</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 async function loadPayments() {
   const container = document.getElementById('paymentList');
-  if (!selectedOrgId) { container.innerHTML = '<div class="empty">Select an organization above to view payments</div>'; return; }
+  if (!selectedOrgId) { container.innerHTML = '<div class="empty">Select an organization above to view payments</div>'; payData = []; renderPayments(); return; }
   container.innerHTML = '<div class="shimmer" style="height:36px;margin-bottom:4px"></div><div class="shimmer" style="height:36px;margin-bottom:4px"></div><div class="shimmer" style="height:36px"></div>';
   try {
     const r = await fetch(`${API}/payments/${selectedOrgId}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
     const d = await r.json();
-    const pays = d.payments || [];
-    document.getElementById('paymentBadge').textContent = pays.filter(p=>p.status!=='paid').length;
-    if (!pays.length) { container.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><p>No payments yet</p></div>'; return; }
-    container.innerHTML = pays.map(p => {
-      const sc = p.status;
-      return `<div class="pay-item ${sc}">
-        <div class="pay-left">
-          <svg viewBox="0 0 24 24" fill="none" stroke="${sc==='paid'?'#22c55e':sc==='overdue'?'#ef4444':'#f59e0b'}" stroke-width="2" style="width:18px;height:18px">${sc==='paid'?'<polyline points="20 6 9 17 4 12"/>':sc==='overdue'?'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>':'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'}</svg>
-          <div class="pay-info"><span class="pay-org">${fmtDate(p.period_start)} - ${fmtDate(p.period_end)}</span><span class="pay-period">Due: ${fmtDate(p.due_date)}</span></div>
-        </div>
-        <div class="pay-right">
-          <span class="pay-amt">${fmt(p.amount_due)}/= </span>
-          <span class="pay-badge ${sc}">${p.status}</span>
-          ${sc !== 'paid' ? `<button class="btn btn-success btn-sm mark-paid-btn" data-payment-id="${p.id}" data-amount="${p.amount_due||0}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Pay</button>` : ''}
-        </div>
-      </div>`;
-    }).join('');
+    payData = d.payments || [];
+    renderPayments();
   } catch(e) { container.innerHTML = '<div class="empty">Failed to load</div>'; }
 }
 
-function togglePhone(id) { phoneRevealed[id]=!phoneRevealed[id]; loadSupervisors(); }
+function togglePhone(id) { phoneRevealed[id]=!phoneRevealed[id]; renderSupervisors(); }
 function openMarkPaid(id,amt) { pendingPaymentId=id; document.getElementById('paidAmount').value=amt||0; document.getElementById('markPaidModal').classList.add('active'); }
 function closeModal() { document.getElementById('markPaidModal').classList.remove('active'); pendingPaymentId=null; }
 
@@ -725,6 +803,22 @@ async function logout() {
   } catch(e) {}
   window.location.href = '/';
 }
+
+// Filter event listeners
+['supSearch','supStatusFilter','supSuspendedFilter'].forEach(id => {
+  document.getElementById(id).addEventListener('change', renderSupervisors);
+});
+document.getElementById('supSearch').addEventListener('input', renderSupervisors);
+
+['guardSearch','guardStatusFilter','guardSuspendedFilter'].forEach(id => {
+  document.getElementById(id).addEventListener('change', renderGuards);
+});
+document.getElementById('guardSearch').addEventListener('input', renderGuards);
+
+['paySearch','payStatusFilter'].forEach(id => {
+  document.getElementById(id).addEventListener('change', renderPayments);
+});
+document.getElementById('paySearch').addEventListener('input', renderPayments);
 
 // Init
 loadOrgs().then(() => loadDashboard());
