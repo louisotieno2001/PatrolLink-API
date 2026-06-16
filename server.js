@@ -185,6 +185,29 @@ app.use(session({
 }));
 
 // ============================================
+// REQUEST LOGGING MIDDLEWARE
+// ============================================
+app.use((req, res, next) => {
+  // Log web page views and non-GET mutations (not static files)
+  if (!req.path.startsWith('/images/') && !req.path.startsWith('/api/')) {
+    const _ip = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || '';
+    const _ua = req.headers['user-agent'] || '';
+    const user = req.session?.user;
+    logWebActivity({
+      eventType: req.method === 'GET' ? 'page_view' : 'web_action',
+      userId: user?.id,
+      userName: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : null,
+      userRole: user?.role,
+      ipAddress: _ip,
+      userAgent: _ua,
+      path: req.path,
+      method: req.method,
+    });
+  }
+  next();
+});
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
 
@@ -888,16 +911,14 @@ const isValidRedirect = (target) => {
  * Denies access to non-admin users
  */
 const requireAuth = (req, res, next) => {
-  console.log(`Auth check: Session ID ${req.sessionID}, User in session: ${!!req.session.user}`);
   if (req.session && req.session.user) {
-    const allowedRoles = ['admin', 'supervisor', 'developer'];
+    const allowedRoles = ['admin', 'supervisor', 'developer', 'super-admin'];
     if (!allowedRoles.includes(req.session.user.role)) {
       console.warn(`Access denied for user ${req.session.user.id} with role ${req.session.user.role} on ${req.originalUrl}`);
       return res.status(403).send('Access denied. Admin, Supervisor, or Developer privileges required.');
     }
     next();
   } else {
-    console.log(`Unauthenticated access attempt to ${req.originalUrl}, Session ID: ${req.sessionID}, redirecting to /login`);
     const returnTo = req.originalUrl;
     if (isValidRedirect(returnTo)) {
       req.session.returnTo = returnTo;
@@ -942,6 +963,37 @@ const requireRole = (...roles) => {
   };
 };
 
+/**
+ * Require certified_dev middleware — user must have certified_dev = true
+ * Must be used after verifyTokenMiddleware so req.user is populated
+ */
+const requireCertifiedDev = (req, res, next) => {
+  if (req.user && req.user.certified_dev === true) {
+    return next();
+  }
+  return res.status(403).json({
+    error: 'Forbidden',
+    code: 'DEV_NOT_CERTIFIED',
+    message: 'You are not certified as a developer. Please contact your administrator to get verified.',
+  });
+};
+
+/**
+ * Log a web activity event to the database (logins, signups, errors, page views)
+ */
+async function logWebActivity({ eventType, userId, userName, userRole, ipAddress, userAgent, path, method, statusCode, details }) {
+  try {
+    await pool.query(
+      `INSERT INTO web_activity_logs (event_type, user_id, user_name, user_role, ip_address, user_agent, path, method, status_code, details)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [eventType, userId || null, userName || null, userRole || null, ipAddress || null, userAgent || null, path || null, method || null, statusCode || null, details ? JSON.stringify(details) : null]
+    );
+  } catch (err) {
+    // Don't let logging failures cascade
+    console.error('Failed to log web activity:', err.message);
+  }
+}
+
 // ============================================
 // AUTH ROUTES
 // ============================================
@@ -964,6 +1016,8 @@ async function signUp(userData) {
 app.post('/api/register', registerLimiter, async (req, res) => {
   try {
     const { firstName, lastName, phone, password, role, companyCode } = req.body || {};
+    const _ip = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || '';
+    const _ua = req.headers['user-agent'] || '';
 
     // Validate required fields
     if (!firstName || !lastName || !phone || !password) {
@@ -1009,6 +1063,7 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     const newUser = await signUp(userData);
 
     // Return success (without password)
+    logWebActivity({ eventType: 'signup', userId: newUser?.data?.id, userName: `${firstName} ${lastName}`, userRole: role || 'guard', ipAddress: _ip, userAgent: _ua, details: { phone, role: role || 'guard', companyCode } });
     res.status(201).json({
       message: 'User registered successfully',
       user: newUser
@@ -1160,6 +1215,8 @@ app.get('/api/locations', verifyTokenMiddleware, async (req, res) => {
 app.post('/api/login', loginLimiter, async (req, res) => {
   try {
     const { phone, password } = req.body || {};
+    const _ip = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || '';
+    const _ua = req.headers['user-agent'] || '';
 
     // Validate input
     if (!phone || !password) {
@@ -1174,6 +1231,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     const users = await query(queryUrl);
 
     if (!users.data.data || users.data.data.length === 0) {
+      logWebActivity({ eventType: 'login_failed', details: { reason: 'user_not_found', phone }, ipAddress: _ip, userAgent: _ua });
       return res.status(401).json({ 
         error: 'Unauthorized', 
         message: 'Invalid phone number or password' 
@@ -1185,6 +1243,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     // Verify password
     const isValidPassword = await verifyPassword(password, user.password);
     if (!isValidPassword) {
+      logWebActivity({ eventType: 'login_failed', details: { reason: 'wrong_password', phone }, ipAddress: _ip, userAgent: _ua });
       return res.status(401).json({ 
         error: 'Unauthorized', 
         message: 'Invalid phone number or password' 
@@ -1193,6 +1252,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 
     // Check if user is suspended
     if (user.suspended === true) {
+      logWebActivity({ eventType: 'login_failed', userId: user.id, userName: `${user.first_name || ''} ${user.last_name || ''}`.trim(), userRole: user.role, details: { reason: 'suspended', phone }, ipAddress: _ip, userAgent: _ua });
       return res.status(403).json({
         error: 'Account Suspended',
         code: 'USER_SUSPENDED',
@@ -1277,6 +1337,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       phone: user.phone,
       role: user.role,
       invite_code: user.invite_code,
+      certified_dev: user.certified_dev === true,
       assignments: assignments,
       patrol_status: patrolStatus,
       ongoing_patrol: ongoingPatrol,
@@ -1296,17 +1357,16 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       phone: user.phone,
       role: user.role,
       invite_code: user.invite_code,
+      certified_dev: user.certified_dev === true,
       assignments: assignments,
       token: token,
     };
 
     // Get the returnTo URL from session or default based on role
     const rawReturnTo = req.session.returnTo;
-    const defaultRedirect = user.role === 'developer' ? '/developer/dashboard' : '/admin/dashboard';
+    const defaultRedirect = (user.role === 'developer' || user.role === 'super-admin') ? '/developer/dashboard' : '/admin/dashboard';
     const returnTo = rawReturnTo && isValidRedirect(rawReturnTo) ? rawReturnTo : defaultRedirect;
     delete req.session.returnTo; // Clear it after use
-
-    console.log(`Login successful for user ${user.id}, role: ${user.role}. Session ID: ${req.sessionID}. Redirecting to: ${returnTo}`);
 
     // Explicitly save session before sending response to avoid race conditions in cluster mode
     req.session.save((err) => {
@@ -1315,7 +1375,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
         return res.status(500).json({ error: 'Internal Server Error', message: 'Failed to initialize session' });
       }
       
-      console.log(`Session saved for ${user.id}. Session ID is ${req.sessionID}`);
+      logWebActivity({ eventType: 'login', userId: user.id, userName: `${user.first_name || ''} ${user.last_name || ''}`.trim(), userRole: user.role, ipAddress: _ip, userAgent: _ua, details: { returnTo } });
       res.json({
         message: 'Login successful',
         user: {
@@ -1353,6 +1413,8 @@ app.post('/api/logout', async (req, res) => {
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const decoded = token ? verifyToken(token) : null;
+    const _ip = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || '';
+    const _ua = req.headers['user-agent'] || '';
 
     if (decoded?.id && decoded.role === 'guard') {
       const ongoingPatrol = await getLatestOngoingPatrol(decoded.id);
@@ -1375,6 +1437,7 @@ app.post('/api/logout', async (req, res) => {
         });
       }
       res.clearCookie('connect.sid');
+      logWebActivity({ eventType: 'logout', userId: decoded?.id, userName: decoded ? `${decoded.first_name || ''} ${decoded.last_name || ''}`.trim() : null, userRole: decoded?.role, ipAddress: _ip, userAgent: _ua });
       res.json({ message: 'Logout successful' });
     });
   } catch (error) {
@@ -1572,9 +1635,21 @@ app.get('/admin/dashboard', requireAuth, async (req, res) => {
  * GET /developer/dashboard
  * Web-based developer dashboard page (session auth)
  */
-app.get('/developer/dashboard', requireAuth, async (req, res) => {
+app.get('/developer/dashboard', requireAuth, (req, res, next) => {
+  if (req.session.user.role !== 'developer' && req.session.user.role !== 'super-admin') {
+    return res.status(403).send('Access denied. Developer or Super-Admin privileges required.');
+  }
+  if (req.session.user.certified_dev !== true) {
+    return res.status(403).render('developer_dashboard', {
+      user: req.session.user,
+      _devNotCertified: true,
+    });
+  }
+  next();
+}, async (req, res) => {
   res.render('developer_dashboard', {
     user: req.session.user,
+    _devNotCertified: false,
   });
 });
 
@@ -2157,7 +2232,7 @@ async function buildDashboardSummary(orgId = null) {
  * GET /api/developer/dashboard
  * Developer dashboard summary
  */
-app.get('/api/developer/dashboard', verifyTokenMiddleware, requireRole('admin', 'supervisor', 'developer'), async (req, res) => {
+app.get('/api/developer/dashboard', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const orgResult = await pool.query(
@@ -2208,7 +2283,7 @@ function generateApiKey() {
  * GET /api/developer/api-keys
  * List all API keys for the developer's organization
  */
-app.get('/api/developer/api-keys', verifyTokenMiddleware, requireRole('admin', 'supervisor', 'developer'), async (req, res) => {
+app.get('/api/developer/api-keys', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     if (!inviteCode) {
@@ -2235,7 +2310,7 @@ app.get('/api/developer/api-keys', verifyTokenMiddleware, requireRole('admin', '
  * Create a new API key
  * Body: { name }
  */
-app.post('/api/developer/api-keys', verifyTokenMiddleware, requireRole('admin', 'supervisor', 'developer'), async (req, res) => {
+app.post('/api/developer/api-keys', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { name } = req.body || {};
@@ -2276,7 +2351,7 @@ app.post('/api/developer/api-keys', verifyTokenMiddleware, requireRole('admin', 
  * DELETE /api/developer/api-keys/:id
  * Revoke (delete) an API key
  */
-app.delete('/api/developer/api-keys/:id', verifyTokenMiddleware, requireRole('admin', 'supervisor', 'developer'), async (req, res) => {
+app.delete('/api/developer/api-keys/:id', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { id } = req.params;
@@ -2303,7 +2378,7 @@ app.delete('/api/developer/api-keys/:id', verifyTokenMiddleware, requireRole('ad
  * Enable or disable an API key
  * Body: { enabled: boolean }
  */
-app.patch('/api/developer/api-keys/:id/toggle', verifyTokenMiddleware, requireRole('admin', 'supervisor', 'developer'), async (req, res) => {
+app.patch('/api/developer/api-keys/:id/toggle', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
   try {
     const inviteCode = req.user.invite_code;
     const { id } = req.params;
@@ -2327,6 +2402,444 @@ app.patch('/api/developer/api-keys/:id/toggle', verifyTokenMiddleware, requireRo
   } catch (err) {
     console.error('Error toggling API key:', err);
     res.status(500).json({ error: 'Failed to toggle API key' });
+  }
+});
+
+// ============================================
+// OMNISCIENT DEVELOPER DASHBOARD — ALL DATA
+// ============================================
+
+/**
+ * GET /api/developer/omni
+ * Omniscient system overview — returns all organizations, users, guards,
+ * supervisors, patrols, logs, payments, API keys, and system-wide stats.
+ * This is the "all-seeing eye" endpoint for the developer dashboard.
+ */
+app.get('/api/developer/omni', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
+  try {
+    // ─── Organizations (from PostgreSQL) ───────────────────────────
+    const orgsResult = await pool.query('SELECT * FROM organizations ORDER BY name');
+    const organizations = orgsResult.rows || [];
+
+    // ─── Users by role (from Directus) ─────────────────────────────
+    const fetchUsersByRole = async (role) => {
+      try {
+        const r = await query(`/items/users?filter[role][_eq]=${encodeURIComponent(role)}&fields=*&limit=-1`);
+        return r.data.data || [];
+      } catch { return []; }
+    };
+
+    const [guards, supervisors, admins, developers, allDirectusOrgs] = await Promise.all([
+      fetchUsersByRole('guard'),
+      fetchUsersByRole('supervisor'),
+      fetchUsersByRole('admin'),
+      fetchUsersByRole('developer'),
+      query('/items/organizations').then(r => r.data.data || []).catch(() => []),
+    ]);
+
+    const allUsers = [...guards, ...supervisors, ...admins, ...developers];
+
+    // ─── Patrols (from Directus) ──────────────────────────────────
+    let patrols = [];
+    try {
+      const pRes = await query('/items/patrols?sort=-start_time&limit=500');
+      patrols = pRes.data.data || [];
+    } catch (e) { console.error('Error fetching patrols:', e.message); }
+
+    // ─── Logs (from Directus) ─────────────────────────────────────
+    let logs = [];
+    try {
+      const lRes = await query('/items/logs?sort=-timestamp&limit=500');
+      logs = lRes.data.data || [];
+    } catch (e) { console.error('Error fetching logs:', e.message); }
+
+    // ─── GPS points stats (from PostgreSQL) ───────────────────────
+    let gpsCount = 0;
+    try {
+      const gpsRes = await pool.query('SELECT COUNT(*) AS count FROM gps_points');
+      gpsCount = parseInt(gpsRes.rows[0]?.count || 0);
+    } catch (e) { console.error('Error counting GPS points:', e.message); }
+
+    // ─── API keys (from PostgreSQL) ───────────────────────────────
+    let apiKeys = [];
+    try {
+      const akRes = await pool.query('SELECT * FROM api_keys ORDER BY created_at DESC');
+      apiKeys = akRes.rows || [];
+    } catch (e) { console.error('Error fetching API keys:', e.message); }
+
+    // ─── Subscription payments (from PostgreSQL) ──────────────────
+    let payments = [];
+    try {
+      const payRes = await pool.query('SELECT * FROM subscription_payments ORDER BY period_start DESC LIMIT 200');
+      payments = payRes.rows || [];
+    } catch (e) { console.error('Error fetching payments:', e.message); }
+
+    // ─── Locations (from Directus) ────────────────────────────────
+    let locations = [];
+    try {
+      const locRes = await query('/items/locations?fields=*&limit=-1');
+      locations = locRes.data.data || [];
+    } catch (e) { console.error('Error fetching locations:', e.message); }
+
+    // ─── Assignments (from Directus) ──────────────────────────────
+    let assignments = [];
+    try {
+      const aRes = await query('/items/assignments?sort=-date_updated&limit=500');
+      assignments = aRes.data.data || [];
+    } catch (e) { console.error('Error fetching assignments:', e.message); }
+
+    // ─── Web Activity Logs (from PostgreSQL) ──────────────────────
+    let webActivityLogs = [];
+    try {
+      const waRes = await pool.query('SELECT * FROM web_activity_logs ORDER BY created_at DESC LIMIT 500');
+      webActivityLogs = waRes.rows || [];
+    } catch (e) { /* table may not exist yet */ }
+
+    // ─── Compute Stats ────────────────────────────────────────────
+    const unpaidPayments = payments.filter(p => p.status === 'unpaid' || p.status === 'overdue');
+    const totalOutstanding = unpaidPayments.reduce(
+      (sum, p) => sum + parseFloat(p.amount_due || 0) - parseFloat(p.amount_paid || 0), 0
+    );
+
+    const mrr = organizations
+      .filter(o => o.subscription_status === 'active')
+      .reduce((sum, o) => sum + parseFloat(o.monthly_rate || 0), 0);
+
+    // ─── Build org map for enrichment ─────────────────────────────
+    const orgByInvite = {};
+    for (const o of organizations) {
+      if (o.invite_code) orgByInvite[o.invite_code] = o;
+    }
+
+    // ─── Web activity stream ──────────────────────────────────────
+    const webActivityCounts = { login: 0, login_failed: 0, signup: 0, logout: 0, page_view: 0, system_error: 0, web_action: 0 };
+    for (const a of webActivityLogs) {
+      const t = a.event_type || 'other';
+      webActivityCounts[t] = (webActivityCounts[t] || 0) + 1;
+    }
+
+    const recentActivity = webActivityLogs.slice(0, 100).map(a => ({
+      id: a.id,
+      type: a.event_type,
+      user_name: a.user_name,
+      user_role: a.user_role,
+      ip_address: a.ip_address,
+      path: a.path,
+      method: a.method,
+      status_code: a.status_code,
+      details: a.details,
+      timestamp: a.created_at,
+    }));
+
+    const tierBreakdown = {};
+    for (const tier of ['free', 'basic', 'premium', 'enterprise']) {
+      tierBreakdown[tier] = organizations.filter(o => (o.subscription_tier || 'free') === tier).length;
+    }
+
+    // ─── Response ─────────────────────────────────────────────────
+    res.json({
+      stats: {
+        total_organizations: organizations.length,
+        total_users: allUsers.length,
+        total_guards: guards.length,
+        total_supervisors: supervisors.length,
+        total_admins: admins.length,
+        total_developers: developers.length,
+        suspended_users: allUsers.filter(u => u.suspended === true).length,
+        total_api_keys: apiKeys.length,
+        active_api_keys: apiKeys.filter(k => k.enabled).length,
+        mrr: parseFloat(mrr.toFixed(2)),
+        total_outstanding: parseFloat(totalOutstanding.toFixed(2)),
+        unpaid_payments: unpaidPayments.length,
+        overdue_payments: payments.filter(p => p.status === 'overdue').length,
+        total_locations: locations.length,
+        total_assignments: assignments.length,
+        tier_breakdown: tierBreakdown,
+        web_activity: webActivityCounts,
+        total_web_events: webActivityLogs.length,
+      },
+      organizations: organizations.map(o => ({
+        id: o.id,
+        name: o.name,
+        invite_code: o.invite_code,
+        subscription_tier: o.subscription_tier || 'free',
+        subscription_status: o.subscription_status || 'active',
+        monthly_rate: parseFloat(o.monthly_rate || 0),
+        max_guards: o.max_guards || 0,
+        created_at: o.created_at || null,
+        guard_count: guards.filter(g => g.invite_code === o.invite_code).length,
+        supervisor_count: supervisors.filter(s => s.invite_code === o.invite_code).length,
+        admin_count: admins.filter(a => a.invite_code === o.invite_code).length,
+      })),
+      guards: guards.map(g => ({
+        id: g.id,
+        first_name: g.first_name,
+        last_name: g.last_name,
+        phone: g.phone,
+        email: g.email,
+        invite_code: g.invite_code,
+        organization: orgByInvite[g.invite_code]?.name || '—',
+        suspended: g.suspended === true,
+        status: g.status || 'active',
+        last_access: g.last_access || null,
+        date_created: g.date_created || null,
+      })),
+      supervisors: supervisors.map(s => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        phone: s.phone,
+        email: s.email,
+        invite_code: s.invite_code,
+        organization: orgByInvite[s.invite_code]?.name || '—',
+        suspended: s.suspended === true,
+        status: s.status || 'active',
+        last_access: s.last_access || null,
+      })),
+      admins: admins.map(a => ({
+        id: a.id,
+        first_name: a.first_name,
+        last_name: a.last_name,
+        phone: a.phone,
+        email: a.email,
+        invite_code: a.invite_code,
+        organization: orgByInvite[a.invite_code]?.name || '—',
+        last_access: a.last_access || null,
+      })),
+      developers: developers.map(d => ({
+        id: d.id,
+        first_name: d.first_name,
+        last_name: d.last_name,
+        phone: d.phone,
+        email: d.email,
+        invite_code: d.invite_code,
+        last_access: d.last_access || null,
+      })),
+      web_activity: webActivityLogs.slice(0, 200).map(a => ({
+        id: a.id,
+        event_type: a.event_type,
+        user_id: a.user_id,
+        user_name: a.user_name,
+        user_role: a.user_role,
+        ip_address: a.ip_address,
+        user_agent: a.user_agent,
+        path: a.path,
+        method: a.method,
+        status_code: a.status_code,
+        details: a.details,
+        created_at: a.created_at,
+      })),
+      payments: payments.slice(0, 100).map(p => ({
+        id: p.id,
+        organization: p.organization,
+        period_start: p.period_start,
+        period_end: p.period_end,
+        amount_due: parseFloat(p.amount_due || 0),
+        amount_paid: parseFloat(p.amount_paid || 0),
+        status: p.status,
+        due_date: p.due_date,
+        paid_at: p.paid_at,
+        payment_method: p.payment_method,
+      })),
+      api_keys: apiKeys.map(k => ({
+        id: k.id,
+        organization_id: k.organization_id,
+        name: k.name,
+        key_prefix: k.key_prefix,
+        enabled: k.enabled,
+        created_at: k.created_at,
+        last_used_at: k.last_used_at,
+        created_by: k.created_by,
+      })),
+      locations: locations.map(l => ({
+        id: l.id,
+        name: l.name,
+        organization: l.organization,
+        address: l.address || '',
+      })),
+      assignments: assignments.slice(0, 100).map(a => ({
+        id: a.id,
+        user_id: a.user_id,
+        location: a.location,
+        start_time: a.start_time,
+        end_time: a.end_time,
+        date_updated: a.date_updated,
+      })),
+      recent_activity: recentActivity.slice(0, 100),
+      directus_orgs: allDirectusOrgs,
+      fetched_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Omni dashboard error:', err);
+    res.status(500).json({ error: 'Failed to load omni dashboard', message: err.message });
+  }
+});
+
+// ============================================
+// DEVELOPER CRUD — Organizations & Users
+// ============================================
+
+/**
+ * Create a new organization (Directus + PostgreSQL)
+ */
+app.post('/api/developer/organizations', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
+  try {
+    const { name, invite_code, subscription_tier, subscription_status, monthly_rate, max_guards } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Organization name is required' });
+    }
+
+    // Generate a unique invite code if not provided
+    const code = invite_code || crypto.randomBytes(4).toString('hex').toUpperCase();
+
+    // Create in Directus
+    const directusRes = await query('/items/organizations', {
+      method: 'POST',
+      data: {
+        name,
+        invite_code: code,
+        subscription_tier: subscription_tier || 'free',
+        subscription_status: subscription_status || 'active',
+        monthly_rate: monthly_rate || 0,
+        max_guards: max_guards || 0,
+      },
+    });
+    const directusOrg = directusRes.data.data;
+
+    // Create in PostgreSQL
+    const pgRes = await pool.query(
+      `INSERT INTO organizations (id, name, invite_code, subscription_tier, subscription_status, monthly_rate, max_guards)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [directusOrg.id, name, code, subscription_tier || 'free', subscription_status || 'active', monthly_rate || 0, max_guards || 0]
+    );
+
+    logWebActivity({
+      eventType: 'web_action',
+      userId: req.user.id,
+      userName: req.user.first_name + ' ' + req.user.last_name,
+      userRole: req.user.role,
+      details: { action: 'create_organization', organization_name: name, organization_id: directusOrg.id },
+    });
+
+    res.status(201).json({ message: 'Organization created', organization: pgRes.rows[0] });
+  } catch (err) {
+    console.error('Create organization error:', err);
+    res.status(500).json({ error: 'Failed to create organization', message: err.message });
+  }
+});
+
+/**
+ * Delete an organization (Directus + PostgreSQL)
+ */
+app.delete('/api/developer/organizations/:id', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Delete from Directus
+    await query(`/items/organizations/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+
+    // Delete from PostgreSQL
+    await pool.query('DELETE FROM organizations WHERE id = $1', [id]);
+
+    logWebActivity({
+      eventType: 'web_action',
+      userId: req.user.id,
+      userName: req.user.first_name + ' ' + req.user.last_name,
+      userRole: req.user.role,
+      details: { action: 'delete_organization', organization_id: id },
+    });
+
+    res.json({ message: 'Organization deleted' });
+  } catch (err) {
+    console.error('Delete organization error:', err);
+    res.status(500).json({ error: 'Failed to delete organization', message: err.message });
+  }
+});
+
+/**
+ * Create a user (guard or supervisor) via Directus
+ */
+app.post('/api/developer/users', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
+  try {
+    const { first_name, last_name, phone, password, role, invite_code } = req.body;
+
+    if (!first_name || !last_name || !phone || !password) {
+      return res.status(400).json({ error: 'Validation Error', message: 'first_name, last_name, phone, and password are required' });
+    }
+
+    const userRole = role || 'guard';
+    if (!['guard', 'supervisor'].includes(userRole)) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Role must be "guard" or "supervisor"' });
+    }
+
+    // Password strength validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",.\/<>?~])[A-Za-z\d!@#$%^&*()_+\-=\[\]{}|;':",.\/<>?~]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Password must be at least 8 characters with uppercase, lowercase, digit, and special character',
+      });
+    }
+
+    // Check for duplicate phone
+    const existing = await query(`/items/users?filter[phone][_eq]=${encodeURIComponent(phone)}&limit=1`);
+    if (existing?.data?.data?.length > 0) {
+      return res.status(409).json({ error: 'Conflict', message: 'A user with this phone number already exists' });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    const userData = {
+      first_name,
+      last_name,
+      phone,
+      password: hashedPassword,
+      role: userRole,
+      invite_code: invite_code || 'null',
+      status: 'active',
+    };
+
+    const newUser = await signUp(userData);
+
+    logWebActivity({
+      eventType: 'signup',
+      userId: newUser?.data?.id,
+      userName: `${first_name} ${last_name}`,
+      userRole: userRole,
+      ipAddress: req.ip,
+      details: { action: 'dev_created_user', role: userRole, invite_code: invite_code || null, created_by: req.user.id },
+    });
+
+    res.status(201).json({ message: 'User created successfully', user: newUser });
+  } catch (err) {
+    console.error('Create user error:', err);
+    if (err.message?.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Conflict', message: 'A user with this phone number already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create user', message: err.message });
+  }
+});
+
+/**
+ * Delete a user and all related records
+ */
+app.delete('/api/developer/users/:id', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    await deleteUserAccount(id);
+
+    logWebActivity({
+      eventType: 'web_action',
+      userId: req.user.id,
+      userName: req.user.first_name + ' ' + req.user.last_name,
+      userRole: req.user.role,
+      details: { action: 'delete_user', deleted_user_id: id },
+    });
+
+    res.json({ message: 'User and related records deleted successfully' });
+  } catch (err) {
+    console.error('Delete user error:', err);
+    res.status(500).json({ error: 'Failed to delete user', message: err.message });
   }
 });
 
@@ -2388,6 +2901,8 @@ app.get('/terms-of-service', (req, res) => {
 // ============================================
 app.use((err, req, res, next) => {
   console.error('Unhandled Error:', err);
+  const _ip = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || '';
+  logWebActivity({ eventType: 'system_error', details: { message: err.message, stack: (err.stack || '').substring(0, 1000), path: req.path, method: req.method }, ipAddress: _ip });
   res.status(500).json({ 
     error: 'Internal Server Error', 
     message: 'An unexpected error occurred' 
@@ -3882,8 +4397,6 @@ const ensureTables = async () => {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_session_expire ON "session" ("expire")
     `).catch((err) => console.error('Failed to create session expire index:', err));
-    console.log('Session table ensured');
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS api_keys (
         id SERIAL PRIMARY KEY,
@@ -3897,7 +4410,28 @@ const ensureTables = async () => {
         created_by VARCHAR(255)
       )
     `).catch((err) => console.error('Failed to create api_keys table:', err));
-    console.log('API keys table ensured');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS web_activity_logs (
+        id SERIAL PRIMARY KEY,
+        event_type VARCHAR(50) NOT NULL,
+        user_id VARCHAR(255),
+        user_name VARCHAR(255),
+        user_role VARCHAR(50),
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        path VARCHAR(500),
+        method VARCHAR(10),
+        status_code INTEGER,
+        details JSONB,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `).catch((err) => console.error('Failed to create web_activity_logs table:', err));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_web_activity_logs_event_type ON web_activity_logs (event_type)
+    `).catch(() => {});
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_web_activity_logs_created_at ON web_activity_logs (created_at DESC)
+    `).catch(() => {});
   } catch (err) {
     console.error('Failed to create session table:', err);
   }

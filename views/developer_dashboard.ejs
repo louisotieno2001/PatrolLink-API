@@ -3,283 +3,394 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PatrolLink Developer</title>
+<title>OmniWatch — All-Seeing Eye</title>
 <link rel="icon" href="/images/logo.png">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0b1120;--surface:#111827;--card:#1a2332;--border:#1e293b;--text:#e2e8f0;--muted:#64748b;--accent:#3b82f6;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--purple:#8b5cf6;--teal:#14b8a6}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.app{display:flex;min-height:100vh}
-.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+:root{--bg:#070b14;--surface:#0f1629;--card:#151d35;--border:#1e2a4a;--text:#e2e8f0;--muted:#64748b;--accent:#3b82f6;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--purple:#8b5cf6;--teal:#14b8a6;--pink:#ec4899;--glow:rgba(59,130,246,.15)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:url('/images/eyes.webp') center/cover no-repeat;opacity:.08;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 0%,var(--bg) 80%);pointer-events:none;z-index:0}
+.app{display:flex;min-height:100vh;position:relative;z-index:1}
+
+/* Sidebar */
+.sidebar{width:220px;background:rgba(15,22,41,.92);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;backdrop-filter:blur(12px)}
 .sidebar-brand{padding:18px 16px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.sidebar-brand svg{width:24px;height:24px;flex-shrink:0}
-.sidebar-brand span{font-size:16px;font-weight:700}
+.sidebar-brand .eye-icon{width:28px;height:28px;flex-shrink:0;position:relative}
+.sidebar-brand .eye-icon svg{width:100%;height:100%}
+.sidebar-brand .eye-pulse{position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--accent);animation:pulse-ring 2s infinite;opacity:.4}
+@keyframes pulse-ring{0%{transform:scale(1);opacity:.4}50%{transform:scale(1.3);opacity:0}100%{transform:scale(1);opacity:.4}}
+.sidebar-brand span{font-size:15px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .sidebar-nav{flex:1;padding:8px;overflow-y:auto}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px;font-weight:500;transition:.12s;cursor:pointer;border:none;background:none;width:100%;text-align:left}
-.nav-item:hover{background:var(--card);color:var(--text)}
-.nav-item.active{background:var(--accent);color:#fff}
-.nav-item svg{width:18px;height:18px;flex-shrink:0}
-.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:12px;font-weight:500;transition:.12s;cursor:pointer;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,.04);color:var(--text)}
+.nav-item.active{background:rgba(59,130,246,.15);color:var(--accent);box-shadow:inset 2px 0 0 var(--accent)}
+.nav-item svg{width:16px;height:16px;flex-shrink:0}
+.nav-item .badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+
+/* Main */
 .main{flex:1;display:flex;flex-direction:column;max-width:calc(100vw - 220px)}
-.top-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 24px;border-bottom:1px solid var(--border);background:rgba(15,22,41,.85);backdrop-filter:blur(8px);min-height:48px}
 .top-bar-left{display:flex;align-items:center;gap:12px}
-.top-bar-left h1{font-size:16px;font-weight:700}
-.top-bar-right{display:flex;align-items:center;gap:10px}
-.last-updated{font-size:11px;color:var(--muted)}
-.content{padding:20px 24px;overflow-y:auto;flex:1}
-.tab-pane{display:none}
-.tab-pane.active{display:block}
-.section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:18px}
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:14px;font-weight:600}
-.section-header svg{width:18px;height:18px;margin-right:6px;flex-shrink:0}
-.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:24px}
-.metric{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px;transition:.2s}
-.metric:hover{transform:translateY(-2px);border-color:var(--accent)}
-.metric-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.metric-icon svg{width:22px;height:22px}
-.metric-body{display:flex;flex-direction:column;gap:1px}
-.metric-value{font-size:20px;font-weight:800;line-height:1.2}
-.metric-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
-.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:.12s;line-height:1;text-decoration:none}
-.btn svg{width:13px;height:13px}
+.top-bar-left h1{font-size:15px;font-weight:700}
+.top-bar-left .status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
+.top-bar-right{display:flex;align-items:center;gap:8px}
+.last-updated{font-size:10px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;font-size:10px;font-weight:600;border:none;cursor:pointer;transition:.12s;line-height:1;text-decoration:none}
+.btn svg{width:12px;height:12px}
 .btn-primary{background:var(--accent);color:#fff}
 .btn-primary:hover{background:#2563eb}
-.btn-success{background:var(--green);color:#fff}
-.btn-success:hover{background:#16a34a}
-.btn-warning{background:var(--amber);color:#000}
-.btn-warning:hover{background:#d97706}
+.btn-ghost{background:rgba(255,255,255,.05);color:var(--text)}
+.btn-ghost:hover{background:rgba(255,255,255,.1)}
+.btn-sm{padding:4px 8px;font-size:10px}
 .btn-danger{background:var(--red);color:#fff}
 .btn-danger:hover{background:#dc2626}
-.btn-ghost{background:rgba(255,255,255,.06);color:var(--text)}
-.btn-ghost:hover{background:rgba(255,255,255,.1)}
-.btn-sm{padding:4px 9px;font-size:10px}
-.btn-sm svg{width:11px;height:11px}
-.btn-link{display:inline-flex;align-items:center;gap:4px;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 6px;border-radius:5px;font-size:11px;transition:.12s;text-decoration:none}
-.btn-link:hover{background:rgba(255,255,255,.06);color:var(--text)}
-.key-item{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:8px;margin-bottom:6px;background:rgba(255,255,255,.02);border:1px solid transparent;transition:.15s}
-.key-item:hover{border-color:var(--border);background:rgba(255,255,255,.04)}
-.key-left{display:flex;align-items:center;gap:12px}
-.key-icon{width:36px;height:36px;border-radius:8px;background:rgba(59,130,246,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.key-icon svg{width:18px;height:18px;color:var(--accent)}
-.key-info{display:flex;flex-direction:column;gap:2px}
-.key-name{font-size:13px;font-weight:600}
-.key-prefix{font-size:11px;color:var(--muted);font-family:monospace}
-.key-right{display:flex;align-items:center;gap:8px}
-.key-status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.key-status.active{background:var(--green)}
-.key-status.disabled{background:var(--muted)}
-.empty{text-align:center;padding:32px;color:var(--muted);font-size:13px}
-.empty svg{width:36px;height:36px;opacity:.3;margin-bottom:8px}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100}
-.modal-overlay.active{display:flex}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;width:460px;max-width:92vw}
-.modal h2{font-size:16px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.modal-field{margin-bottom:12px}
-.modal-field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px}
-.modal-field input{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:12px;outline:none}
-.modal-field input:focus{border-color:var(--accent)}
-.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-.toast-container{position:fixed;top:16px;right:16px;z-index:999;display:flex;flex-direction:column;gap:6px}
-.toast{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;color:#fff;transform:translateX(120%);transition:transform .25s;display:flex;align-items:center;gap:8px}
+.btn-success{background:var(--green);color:#fff}
+.btn-success:hover{background:#16a34a}
+.btn-amber{background:var(--amber);color:#000}
+.btn-amber:hover{background:#d97706}
+
+.content{padding:16px 20px;overflow-y:auto;flex:1}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* Metrics grid */
+.metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.metric{background:rgba(21,29,53,.7);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;transition:.2s;position:relative;overflow:hidden}
+.metric::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:.3s}
+.metric:hover::before{opacity:1}
+.metric:hover{transform:translateY(-1px);border-color:rgba(59,130,246,.3)}
+.metric-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.metric-icon svg{width:18px;height:18px}
+.metric-body{display:flex;flex-direction:column;gap:1px}
+.metric-value{font-size:17px;font-weight:800;line-height:1.2}
+.metric-label{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+.metric-trend{font-size:9px;display:flex;align-items:center;gap:2px;margin-top:1px}
+
+/* Sections */
+.section{background:rgba(21,29,53,.6);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;backdrop-filter:blur(4px)}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:13px;font-weight:600}
+.section-header .left{display:flex;align-items:center;gap:8px}
+.section-header svg{width:16px;height:16px;flex-shrink:0}
+
+/* Tables */
+.table-wrap{overflow-x:auto;border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.03);white-space:nowrap}
+tr:hover td{background:rgba(255,255,255,.02)}
+tr.clickable{cursor:pointer}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:600;text-transform:uppercase}
+.badge-green{background:rgba(34,197,94,.12);color:var(--green)}
+.badge-red{background:rgba(239,68,68,.12);color:var(--red)}
+.badge-amber{background:rgba(245,158,11,.12);color:var(--amber)}
+.badge-blue{background:rgba(59,130,246,.12);color:var(--accent)}
+.badge-purple{background:rgba(139,92,246,.12);color:var(--purple)}
+.badge-muted{background:rgba(100,116,139,.12);color:var(--muted)}
+.badge-teal{background:rgba(20,184,166,.12);color:var(--teal)}
+.badge-pink{background:rgba(236,72,153,.12);color:var(--pink)}
+
+/* Empty state */
+.empty{text-align:center;padding:24px;color:var(--muted);font-size:12px}
+.empty svg{width:32px;height:32px;opacity:.2;margin-bottom:6px}
+
+/* Filter bar */
+.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.filter-bar input,.filter-bar select{padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;outline:none;max-width:200px}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--accent)}
+.filter-bar input::placeholder{color:var(--muted)}
+
+/* Activity stream */
+.activity-list{display:flex;flex-direction:column;gap:4px;max-height:400px;overflow-y:auto}
+.activity-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:11px;transition:.1s}
+.activity-item:hover{background:rgba(255,255,255,.03)}
+.activity-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.activity-time{font-size:10px;color:var(--muted);white-space:nowrap;min-width:70px}
+.activity-msg{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Glow ring for the eye tab */
+.omni-ring{display:flex;align-items:center;justify-content:center;margin-bottom:16px;gap:20px;flex-wrap:wrap}
+.omni-ring-item{text-align:center;position:relative}
+.omni-ring-item .ring{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;position:relative}
+.omni-ring-item .ring svg{width:32px;height:32px}
+.omni-ring-item .ring-value{font-size:22px;font-weight:800;position:absolute}
+.omni-ring-item .ring-label{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+
+/* Status dot */
+.status-dot-sm{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:4px}
+.status-dot-green{background:var(--green)}
+.status-dot-red{background:var(--red)}
+.status-dot-amber{background:var(--amber)}
+.status-dot-muted{background:var(--muted)}
+
+/* Toast */
+.toast-container{position:fixed;top:12px;right:12px;z-index:9999;display:flex;flex-direction:column;gap:5px}
+.toast{padding:8px 14px;border-radius:6px;font-size:11px;font-weight:500;color:#fff;transform:translateX(120%);transition:transform .25s;display:flex;align-items:center;gap:6px;backdrop-filter:blur(8px)}
 .toast.show{transform:translateX(0)}
-.toast-success{background:#16a34a}
-.toast-error{background:#dc2626}
-.key-reveal{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:12px}
-.key-reveal .key-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
-.key-reveal .key-value{font-family:monospace;font-size:13px;color:var(--accent);word-break:break-all;display:flex;align-items:center;gap:8px}
-.key-reveal .key-value .copy-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;border-radius:4px;display:flex;flex-shrink:0}
-.key-reveal .key-value .copy-btn:hover{background:rgba(255,255,255,.06);color:var(--text)}
-.key-reveal .key-warning{font-size:11px;color:var(--amber);margin-top:6px;display:flex;align-items:center;gap:6px}
-.org-detail{display:flex;flex-direction:column;gap:6px;padding:4px 0}
-.org-detail-row{display:flex;align-items:center;padding:8px 12px;border-radius:6px;background:rgba(255,255,255,.02)}
-.org-detail-row:hover{background:rgba(255,255,255,.04)}
-.org-detail-label{min-width:120px;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase}
-.org-detail-value{font-size:13px}
-.doc-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
-.doc-link{display:flex;align-items:center;gap:12px;padding:14px;border-radius:8px;border:1px solid var(--border);text-decoration:none;color:var(--text);transition:.15s}
-.doc-link:hover{background:rgba(255,255,255,.04);border-color:var(--accent)}
-.doc-link svg{width:20px;height:20px;color:var(--accent);flex-shrink:0}
-.doc-link-info{display:flex;flex-direction:column;gap:1px}
-.doc-link-title{font-size:13px;font-weight:600}
-.doc-link-desc{font-size:10px;color:var(--muted)}
-.shimmer{background:linear-gradient(90deg,var(--card) 25%,rgba(255,255,255,.04) 50%,var(--card) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:6px}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-.org-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;text-transform:capitalize}
-.org-badge.sub{background:rgba(59,130,246,.12);color:var(--accent)}
-.org-badge.status{background:rgba(34,197,94,.12);color:var(--green)}
-::-webkit-scrollbar{width:5px}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.toast-success{background:rgba(22,163,74,.9)}
+.toast-error{background:rgba(220,38,38,.9)}
+
+/* Glow icon for section headers */
+.glow-accent{filter:drop-shadow(0 0 6px rgba(59,130,246,.3))}
+.glow-green{filter:drop-shadow(0 0 6px rgba(34,197,94,.3))}
+.glow-red{filter:drop-shadow(0 0 6px rgba(239,68,68,.3))}
+.glow-amber{filter:drop-shadow(0 0 6px rgba(245,158,11,.3))}
+.glow-purple{filter:drop-shadow(0 0 6px rgba(139,92,246,.3))}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+.sub-text{font-size:10px;color:var(--muted)}
+.blocked-overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;background:var(--bg)}.blocked-overlay .eye-icon{width:64px;height:64px;margin-bottom:20px;opacity:.5}.blocked-overlay h1{font-size:24px;margin-bottom:8px}.blocked-overlay p{color:var(--muted);font-size:14px;max-width:420px;text-align:center;line-height:1.6}.blocked-overlay .code{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-family:monospace;font-size:12px;color:var(--accent);margin-top:16px}.blocked-overlay .btn{margin-top:20px}
+.tier-bars{display:flex;gap:8px;flex-wrap:wrap}
+.tier-bar-item{flex:1;min-width:80px}
+.tier-bar-item .bar-track{height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-bottom:3px}
+.tier-bar-item .bar-fill{height:100%;border-radius:3px;transition:width .6s}
+.tier-bar-item .bar-label{font-size:9px;color:var(--muted);text-transform:uppercase}
+.tier-bar-item .bar-count{font-size:11px;font-weight:700}
 </style>
 </head>
 <body>
+<% if (locals._devNotCertified) { %>
+<div class="blocked-overlay">
+  <div class="eye-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" style="width:64px;height:64px">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3" fill="var(--accent)" opacity=".3"/>
+      <circle cx="12" cy="12" r="1.5" fill="var(--accent)"/>
+    </svg>
+  </div>
+  <h1>Access Restricted</h1>
+  <p>Your developer account has not been certified yet.<br>Please contact your administrator to get verified before accessing the Omni dashboard.</p>
+  <div class="code">certified_dev: false</div>
+  <a href="/" class="btn btn-primary">Return Home</a>
+</div>
+<% } else { %>
 <div class="app">
-  <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      <span>PatrolLink</span>
+      <div class="eye-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3" fill="var(--accent)" opacity=".3"/>
+          <circle cx="12" cy="12" r="1.5" fill="var(--accent)"/>
+        </svg>
+        <div class="eye-pulse"></div>
+      </div>
+      <span>OmniWatch</span>
     </div>
     <nav class="sidebar-nav">
-      <button class="nav-item active" data-tab="dashboard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Dashboard
+      <button class="nav-item active" data-tab="omni">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Omni View
       </button>
-      <button class="nav-item" data-tab="keys">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-        API Keys <span class="badge" id="keyBadge">0</span>
-      </button>
-      <button class="nav-item" data-tab="docs">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        Documentation
-      </button>
-      <button class="nav-item" data-tab="org">
+      <button class="nav-item" data-tab="orgs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        Organization
+        Organizations
+        <span class="badge" id="orgBadge">0</span>
+      </button>
+      <button class="nav-item" data-tab="guards">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Guards
+        <span class="badge" id="guardBadge">0</span>
+      </button>
+      <button class="nav-item" data-tab="supervisors">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Supervisors
+        <span class="badge" id="supBadge">0</span>
+      </button>
+      <button class="nav-item" data-tab="logs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Activity Logs
+        <span class="badge" id="logBadge">0</span>
+      </button>
+      <button class="nav-item" data-tab="health">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        System Health
       </button>
     </nav>
-    <div class="sidebar-footer" style="flex-wrap:wrap;gap:4px">
+    <div class="sidebar-footer">
       <div style="display:flex;align-items:center;gap:6px;width:100%">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        <span style="flex:1"><%= user?.first_name || 'Developer' %></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span style="flex:1;font-size:11px"><%= user?.first_name || 'Developer' %></span>
+        <span class="badge badge-blue" style="font-size:8px">DEV</span>
       </div>
-      <div style="display:flex;gap:4px;width:100%;margin-top:2px">
-        <a href="/" class="btn-link" title="Home">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        </a>
-        <a href="/documentation" class="btn-link" title="Documentation">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        </a>
-        <button class="btn-link" id="logoutBtn" title="Logout" style="margin-left:auto;color:var(--red)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Logout
-        </button>
+      <div style="display:flex;gap:4px;margin-top:4px">
+        <a href="/" class="btn btn-ghost btn-sm" title="Home">Home</a>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn" style="color:var(--red)">Logout</button>
       </div>
     </div>
   </aside>
 
-  <!-- Main -->
   <div class="main">
-    <!-- Top Bar -->
     <div class="top-bar">
       <div class="top-bar-left">
-        <h1 id="pageTitle">Dashboard</h1>
+        <span class="status-dot"></span>
+        <h1 id="pageTitle">Omni View</h1>
       </div>
       <div class="top-bar-right">
         <span class="last-updated" id="lastUpdated"></span>
-        <button class="btn btn-ghost btn-sm" id="refreshBtn" title="Refresh">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        <button class="btn btn-ghost btn-sm" id="refreshBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
           Refresh
         </button>
       </div>
     </div>
 
-    <!-- Content -->
     <div class="content">
-      <!-- Dashboard Tab -->
-      <div class="tab-pane active" id="tab-dashboard"></div>
+      <!-- Omni View Tab -->
+      <div class="tab-pane active" id="tab-omni"></div>
 
-      <!-- API Keys Tab -->
-      <div class="tab-pane" id="tab-keys">
+      <!-- Organizations Tab -->
+      <div class="tab-pane" id="tab-orgs">
         <div class="section">
           <div class="section-header">
-            <span><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>API Keys</span>
-            <button class="btn btn-primary btn-sm" id="createKeyBtn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Create Key
-            </button>
+            <span class="left"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>All Organizations</span>
+            <span style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;color:var(--muted)" id="orgCount"></span><button class="btn btn-primary btn-sm" id="btnShowCreateOrg">+ Create</button></span>
           </div>
-          <div id="keyList"></div>
-        </div>
-      </div>
-
-      <!-- Documentation Tab -->
-      <div class="tab-pane" id="tab-docs">
-        <div class="section">
-          <div class="section-header"><span><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Quick Reference</span></div>
-          <div class="doc-links">
-            <a href="/documentation" class="doc-link">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
-              <div class="doc-link-info"><span class="doc-link-title">Full Documentation</span><span class="doc-link-desc">Complete API reference and guides</span></div>
-            </a>
-            <a href="/documentation#backend" class="doc-link">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-              <div class="doc-link-info"><span class="doc-link-title">API Endpoints</span><span class="doc-link-desc">All backend API routes and schemas</span></div>
-            </a>
-            <a href="/paywall" class="doc-link">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-              <div class="doc-link-info"><span class="doc-link-title">Pricing & Plans</span><span class="doc-link-desc">Subscription tiers and billing</span></div>
-            </a>
+          <div id="createOrgForm" style="display:none;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:rgba(0,0,0,.15)">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <input type="text" id="newOrgName" placeholder="Org name" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:140px">
+              <input type="text" id="newOrgCode" placeholder="Invite code (optional)" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:130px">
+              <select id="newOrgTier" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px">
+                <option value="free">Free</option><option value="basic">Basic</option><option value="premium">Premium</option><option value="enterprise">Enterprise</option>
+              </select>
+              <input type="number" id="newOrgRate" placeholder="Monthly rate" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:90px">
+              <input type="number" id="newOrgMaxGuards" placeholder="Max guards" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:80px">
+              <button class="btn btn-success btn-sm" id="btnCreateOrg">Save</button>
+              <button class="btn btn-ghost btn-sm" id="btnCancelCreateOrg">Cancel</button>
+            </div>
           </div>
+          <div class="filter-bar">
+            <input type="text" id="orgSearch" placeholder="Search organizations...">
+          </div>
+          <div class="table-wrap"><table id="orgTable"><thead><tr><th>Name</th><th>Code</th><th>Tier</th><th>Status</th><th>Rate</th><th>Guards</th><th>Supv</th><th>Max</th><th style="width:50px">Actions</th></tr></thead><tbody></tbody></table></div>
         </div>
       </div>
 
-      <!-- Organization Tab -->
-      <div class="tab-pane" id="tab-org">
+      <!-- Guards Tab -->
+      <div class="tab-pane" id="tab-guards">
         <div class="section">
-          <div class="section-header"><span><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Organization</span></div>
-          <div id="orgDetail" class="org-detail"><div class="empty"><p>Loading...</p></div></div>
+          <div class="section-header">
+            <span class="left"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>All Guards</span>
+            <span style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;color:var(--muted)" id="guardCount"></span><button class="btn btn-primary btn-sm" id="btnShowCreateGuard">+ Create Guard</button></span>
+          </div>
+          <div id="createUserGuardForm" style="display:none;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:rgba(0,0,0,.15)">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <input type="text" id="newGuardFirstName" placeholder="First name" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:110px">
+              <input type="text" id="newGuardLastName" placeholder="Last name" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:110px">
+              <input type="text" id="newGuardPhone" placeholder="Phone" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:100px">
+              <input type="password" id="newGuardPassword" placeholder="Password" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:100px">
+              <input type="text" id="newGuardCode" placeholder="Invite code" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:100px">
+              <button class="btn btn-success btn-sm" id="btnCreateGuard">Save</button>
+              <button class="btn btn-ghost btn-sm" id="btnCancelCreateGuard">Cancel</button>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input type="text" id="guardSearch" placeholder="Search guards...">
+          </div>
+          <div class="table-wrap"><table id="guardTable"><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Organization</th><th>Status</th><th>Suspended</th><th>Last Access</th><th style="width:50px">Actions</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- Supervisors Tab -->
+      <div class="tab-pane" id="tab-supervisors">
+        <div class="section">
+          <div class="section-header">
+            <span class="left"><svg viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>All Supervisors & Admins</span>
+            <span style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;color:var(--muted)" id="supCount"></span><button class="btn btn-primary btn-sm" id="btnShowCreateSup">+ Create Supervisor</button></span>
+          </div>
+          <div id="createUserSupervisorForm" style="display:none;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:rgba(0,0,0,.15)">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <input type="text" id="newSupFirstName" placeholder="First name" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:110px">
+              <input type="text" id="newSupLastName" placeholder="Last name" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:110px">
+              <input type="password" id="newSupPassword" placeholder="Password" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:100px">
+              <input type="text" id="newSupCode" placeholder="Invite code" style="padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:11px;width:100px">
+              <button class="btn btn-success btn-sm" id="btnCreateSup">Save</button>
+              <button class="btn btn-ghost btn-sm" id="btnCancelCreateSup">Cancel</button>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input type="text" id="supSearch" placeholder="Search supervisors...">
+          </div>
+          <div class="table-wrap"><table id="supTable"><thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>Email</th><th>Organization</th><th>Status</th><th>Suspended</th><th>Last Access</th><th style="width:50px">Actions</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- Activity Logs Tab -->
+      <div class="tab-pane" id="tab-logs">
+        <div class="section">
+          <div class="section-header">
+            <span class="left"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Web Activity Logs</span>
+            <span style="font-size:10px;color:var(--muted)" id="logCount"></span>
+          </div>
+          <div class="filter-bar">
+            <input type="text" id="logSearch" placeholder="Search logs...">
+            <select id="logEventFilter">
+              <option value="">All Events</option>
+              <option value="login">Login</option>
+              <option value="login_failed">Failed Login</option>
+              <option value="signup">Signup</option>
+              <option value="logout">Logout</option>
+              <option value="page_view">Page View</option>
+              <option value="web_action">Web Action</option>
+              <option value="system_error">System Error</option>
+            </select>
+            <input type="date" id="logDateFrom" title="From date">
+            <input type="date" id="logDateTo" title="To date">
+            <input type="text" id="logIpFilter" placeholder="Filter IP..." style="width:120px">
+            <input type="text" id="logUserFilter" placeholder="Filter user..." style="width:140px">
+          </div>
+          <div class="table-wrap"><table id="logTable"><thead><tr><th>Time</th><th>Event</th><th>User</th><th>Role</th><th>IP</th><th>Path</th><th>Details</th></tr></thead><tbody></tbody></table></div>
+        </div>
+        <div class="section" style="border-color:rgba(239,68,68,.2)">
+          <div class="section-header">
+            <span class="left"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>System Errors</span>
+          </div>
+          <div id="errorList" class="activity-list"></div>
+        </div>
+      </div>
+
+      <!-- System Health Tab -->
+      <div class="tab-pane" id="tab-health">
+        <div class="metrics" id="healthMetrics"></div>
+        <div class="section">
+          <div class="section-header">
+            <span class="left"><svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Subscription Tiers</span>
+          </div>
+          <div id="tierBreakdown" class="tier-bars"></div>
+        </div>
+        <div class="section">
+          <div class="section-header">
+            <span class="left"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>API Keys Overview</span>
+          </div>
+          <div id="apiKeyInfo"></div>
+        </div>
+        <div class="section">
+          <div class="section-header">
+            <span class="left"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>Payments Overview</span>
+          </div>
+          <div id="paymentInfo"></div>
         </div>
       </div>
     </div>
   </div>
 </div>
-
-<!-- Create Key Modal -->
-<div class="modal-overlay" id="createKeyModal">
-  <div class="modal">
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>Create API Key</h2>
-    <div class="modal-field"><label>Key Name</label><input type="text" id="keyName" placeholder="e.g., Production, Staging, CI/CD" maxlength="100"></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="createKeyCancelBtn">Cancel</button>
-      <button class="btn btn-primary" id="createKeyConfirmBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Create</button>
-    </div>
-  </div>
-</div>
-
-<!-- Key Reveal Modal -->
-<div class="modal-overlay" id="keyRevealModal">
-  <div class="modal">
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>API Key Created</h2>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Copy this key now. You won't be able to see it again.</p>
-    <div class="key-reveal">
-      <div class="key-label">Your API Key</div>
-      <div class="key-value">
-        <span id="revealedKey"></span>
-        <button class="copy-btn" id="copyKeyBtn" title="Copy to clipboard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-        </button>
-      </div>
-      <div class="key-warning">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Store this key securely. It will not be shown again.
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-primary" id="keyRevealDoneBtn">Done</button>
-    </div>
-  </div>
-</div>
-
-<!-- Confirm Revoke Modal -->
-<div class="modal-overlay" id="confirmRevokeModal">
-  <div class="modal">
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Revoke API Key</h2>
-    <p style="font-size:13px;color:var(--muted)">Are you sure you want to revoke the key <strong id="revokeKeyName" style="color:var(--text)"></strong>? Any services using it will immediately lose access.</p>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="revokeCancelBtn">Cancel</button>
-      <button class="btn btn-danger" id="confirmRevokeBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Revoke</button>
-    </div>
-  </div>
-</div>
+<% } %>
 
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
 const TOKEN = '<%= user?.token || "" %>';
-const API = '/api/developer';
-let activeTab = 'dashboard';
-let pendingRevokeId = null;
-let orgData = null;
+const API = '/api/developer/omni';
+let activeTab = 'omni';
+let data = null;
 
 // Tab switching
 document.querySelectorAll('.nav-item').forEach(btn => {
@@ -290,252 +401,441 @@ document.querySelectorAll('.nav-item').forEach(btn => {
     activeTab = btn.dataset.tab;
     document.getElementById('tab-' + activeTab).classList.add('active');
     document.getElementById('pageTitle').textContent = btn.textContent.trim();
-    loadTab(activeTab);
+    if (data) renderTab(activeTab);
   });
 });
 
-function loadActiveTab() { loadTab(activeTab); }
-function refreshActiveTab() { loadTab(activeTab); }
+// ─── DATA FETCH ──────────────────────────────
+async function fetchOmni() {
+  try {
+    const r = await fetch(API, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    if (!r.ok) throw new Error('Failed to fetch');
+    data = await r.json();
+    document.getElementById('lastUpdated').textContent = 'Updated ' + fmtTime(new Date());
+    updateBadges();
+    renderTab(activeTab);
+    return data;
+  } catch (e) {
+    showToast('Failed to load omni data: ' + e.message, 'error');
+    throw e;
+  }
+}
 
-function loadTab(tab) {
+function updateBadges() {
+  if (!data) return;
+  document.getElementById('orgBadge').textContent = data.stats.total_organizations;
+  document.getElementById('guardBadge').textContent = data.stats.total_guards;
+  document.getElementById('supBadge').textContent = data.stats.total_supervisors;
+  document.getElementById('logBadge').textContent = data.stats.total_web_events || 0;
+}
+
+// ─── OMNI VIEW ───────────────────────────────
+function renderOmni() {
+  const s = data.stats;
+  const wa = s.web_activity || {};
+  const c = document.getElementById('tab-omni');
+
+  c.innerHTML = `
+    <div class="omni-ring">
+      <div class="omni-ring-item">
+        <div class="ring" style="border:3px solid rgba(59,130,246,.3);background:rgba(59,130,246,.06)">
+          <span class="ring-value" style="color:var(--accent)">${fmt(s.total_organizations)}</span>
+        </div>
+        <div class="ring-label">Organizations</div>
+      </div>
+      <div class="omni-ring-item">
+        <div class="ring" style="border:3px solid rgba(34,197,94,.3);background:rgba(34,197,94,.06)">
+          <span class="ring-value" style="color:var(--green)">${fmt(s.total_users)}</span>
+        </div>
+        <div class="ring-label">Total Users</div>
+      </div>
+      <div class="omni-ring-item">
+        <div class="ring" style="border:3px solid rgba(245,158,11,.3);background:rgba(245,158,11,.06)">
+          <span class="ring-value" style="color:var(--amber)">${fmt(s.total_web_events||0)}</span>
+        </div>
+        <div class="ring-label">Web Events</div>
+      </div>
+      <div class="omni-ring-item">
+        <div class="ring" style="border:3px solid rgba(236,72,153,.3);background:rgba(236,72,153,.06)">
+          <span class="ring-value" style="color:var(--pink)">$${fmtNum(s.mrr)}</span>
+        </div>
+        <div class="ring-label">MRR</div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="metric-icon" style="background:rgba(34,197,94,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#22c55e">${fmt(wa.login||0)}</span><span class="metric-label">Logins</span></div></div>
+      <div class="metric"><div class="metric-icon" style="background:rgba(239,68,68,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#ef4444">${fmt(wa.login_failed||0)}</span><span class="metric-label">Failed Logins</span></div></div>
+      <div class="metric"><div class="metric-icon" style="background:rgba(59,130,246,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#3b82f6">${fmt(wa.signup||0)}</span><span class="metric-label">Signups</span></div></div>
+      <div class="metric"><div class="metric-icon" style="background:rgba(245,158,11,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#f59e0b">${fmt(wa.system_error||0)}</span><span class="metric-label">System Errors</span></div></div>
+      <div class="metric"><div class="metric-icon" style="background:rgba(139,92,246,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#8b5cf6">${fmt(s.total_api_keys)}</span><span class="metric-label">API Keys</span></div></div>
+      <div class="metric"><div class="metric-icon" style="background:rgba(20,184,166,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#14b8a6">${fmt(wa.page_view||0)}</span><span class="metric-label">Page Views</span></div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <span class="left"><svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Web Activity Stream</span>
+        <span style="font-size:10px;color:var(--muted)">${(data.recent_activity||[]).length} events</span>
+      </div>
+      <div id="activityStream" class="activity-list">
+        ${(data.recent_activity||[]).slice(0,50).map(a => {
+          let dotColor = 'var(--muted)';
+          let icon = '';
+          if (a.type === 'login') { dotColor = 'var(--green)'; icon = '<span class="badge badge-green">LOGIN</span>'; }
+          else if (a.type === 'login_failed') { dotColor = 'var(--red)'; icon = '<span class="badge badge-red">FAILED</span>'; }
+          else if (a.type === 'signup') { dotColor = 'var(--accent)'; icon = '<span class="badge badge-blue">SIGNUP</span>'; }
+          else if (a.type === 'logout') { dotColor = 'var(--purple)'; icon = '<span class="badge badge-purple">LOGOUT</span>'; }
+          else if (a.type === 'system_error') { dotColor = 'var(--red)'; icon = '<span class="badge badge-red">ERROR</span>'; }
+          else if (a.type === 'page_view') { dotColor = 'var(--muted)'; icon = '<span class="badge badge-muted">VIEW</span>'; }
+          const msg = a.user_name ? a.user_name : (a.path || a.ip_address || '');
+          const detail = a.path ? a.path : '';
+          return '<div class="activity-item"><div class="activity-dot" style="background:'+dotColor+'"></div><span class="activity-time">'+(a.timestamp?fmtTime(new Date(a.timestamp)):'—')+'</span>'+icon+'<span class="activity-msg">'+esc(msg)+' <span class="sub-text">'+esc(detail)+'</span></span></div>';
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <span class="left"><svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Web Events by Type</span>
+      </div>
+      <div class="tier-bars" id="webEventBars">
+        ${Object.entries(wa).filter(([k]) => k !== 'web_action').map(([type, count]) => {
+          const colors = {login:'var(--green)',login_failed:'var(--red)',signup:'var(--accent)',logout:'var(--purple)',page_view:'var(--muted)',system_error:'var(--red)',web_action:'var(--amber)'};
+          const pct = s.total_web_events ? ((count/s.total_web_events)*100).toFixed(0) : 0;
+          return '<div class="tier-bar-item"><div class="bar-count">'+fmt(count)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+(colors[type]||'var(--muted)')+'"></div></div><div class="bar-label">'+type.replace(/_/g,' ')+'</div></div>';
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ─── ORGANIZATIONS ────────────────────────────
+function renderOrgs() {
+  const orgs = data.organizations || [];
+  document.getElementById('orgCount').textContent = orgs.length + ' orgs';
+  const tbody = document.querySelector('#orgTable tbody');
+  if (!orgs.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">No organizations</td></tr>'; return; }
+  tbody.innerHTML = orgs.map(o => {
+    const tierColor = {free:'muted',basic:'blue',premium:'purple',enterprise:'amber'}[o.subscription_tier]||'muted';
+    const statusColor = {active:'green',past_due:'red',suspended:'amber'}[o.subscription_status]||'muted';
+    return `<tr data-id="${esc(o.id)}"><td><strong>${esc(o.name)}</strong></td><td><code style="font-size:10px;color:var(--accent)">${esc(o.invite_code||'—')}</code></td><td><span class="badge badge-${tierColor}">${esc(o.subscription_tier)}</span></td><td><span class="badge badge-${statusColor}">${esc(o.subscription_status)}</span></td><td>$${fmtNum(o.monthly_rate)}</td><td>${o.guard_count}</td><td>${o.supervisor_count}</td><td>${o.max_guards||'∞'}</td><td><button class="btn btn-danger btn-sm" data-action="delete-org">Delete</button></td></tr>`;
+  }).join('');
+}
+
+// ─── GUARDS ──────────────────────────────────
+function renderGuards() {
+  const guards = data.guards || [];
+  document.getElementById('guardCount').textContent = guards.length + ' guards';
+  const tbody = document.querySelector('#guardTable tbody');
+  if (!guards.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No guards</td></tr>'; return; }
+  tbody.innerHTML = guards.map(g => {
+    const susp = g.suspended ? '<span class="badge badge-red">Suspended</span>' : '<span class="badge badge-green">Active</span>';
+    return `<tr data-id="${esc(g.id)}"><td><strong>${esc(g.first_name||'')} ${esc(g.last_name||'')}</strong></td><td>${esc(g.phone||'—')}</td><td>${esc(g.email||'—')}</td><td>${esc(g.organization)}</td><td><span class="badge ${g.status==='active'?'badge-green':'badge-amber'}">${esc(g.status)}</span></td><td>${susp}</td><td><span class="sub-text">${g.last_access ? fmtDate(new Date(g.last_access)) : 'Never'}</span></td><td><button class="btn btn-danger btn-sm" data-action="delete-user">Delete</button></td></tr>`;
+  }).join('');
+}
+
+// ─── SUPERVISORS / ADMINS ────────────────────
+function renderSupervisors() {
+  const sups = (data.supervisors||[]).concat(data.admins||[]);
+  document.getElementById('supCount').textContent = sups.length + ' users';
+  const tbody = document.querySelector('#supTable tbody');
+  if (!sups.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">No supervisors</td></tr>'; return; }
+  tbody.innerHTML = sups.map(s => {
+    const isAdmin = (data.admins||[]).find(a => a.id === s.id);
+    const role = isAdmin ? 'Admin' : 'Supervisor';
+    const susp = s.suspended ? '<span class="badge badge-red">Suspended</span>' : '<span class="badge badge-green">Active</span>';
+    return `<tr data-id="${esc(s.id)}"><td><strong>${esc(s.first_name||'')} ${esc(s.last_name||'')}</strong></td><td><span class="badge badge-${role==='Admin'?'pink':'purple'}">${role}</span></td><td>${esc(s.phone||'—')}</td><td>${esc(s.email||'—')}</td><td>${esc(s.organization||'—')}</td><td><span class="badge ${s.status==='active'?'badge-green':'badge-amber'}">${esc(s.status)}</span></td><td>${susp}</td><td><span class="sub-text">${s.last_access ? fmtDate(new Date(s.last_access)) : 'Never'}</span></td><td><button class="btn btn-danger btn-sm" data-action="delete-user">Delete</button></td></tr>`;
+  }).join('');
+}
+
+// ─── WEB ACTIVITY LOGS ────────────────────────
+function renderLogs() {
+  renderWebActivityTable();
+  renderErrors();
+}
+
+function renderWebActivityTable() {
+  const logs = data.web_activity || [];
+  document.getElementById('logCount').textContent = logs.length + ' events';
+  const tbody = document.querySelector('#logTable tbody');
+  if (!logs.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No web activity recorded yet</td></tr>'; return; }
+  tbody.innerHTML = logs.map(l => {
+    const eventColors = {login:'badge-green',login_failed:'badge-red',signup:'badge-blue',logout:'badge-purple',page_view:'badge-muted',system_error:'badge-red',web_action:'badge-amber'};
+    const detailStr = l.details ? (typeof l.details === 'object' ? (l.details.reason || l.details.message || JSON.stringify(l.details).substring(0,80)) : String(l.details).substring(0,80)) : '';
+    return '<tr class="log-row" data-event="'+esc(l.event_type||'')+'"><td><span class="sub-text">'+(l.created_at?fmtTime(new Date(l.created_at)):'—')+'</span></td><td><span class="badge '+(eventColors[l.event_type]||'badge-muted')+'">'+esc(l.event_type||'')+'</span></td><td>'+esc(l.user_name||'—')+'</td><td>'+esc(l.user_role||'—')+'</td><td><code style="font-size:10px;color:var(--muted)">'+esc(l.ip_address||'—')+'</code></td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(l.path||'—')+'</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:11px">'+esc(detailStr)+'</td></tr>';
+  }).join('');
+}
+
+function renderErrors() {
+  const logs = data.web_activity || [];
+  const errors = logs.filter(l => l.event_type === 'system_error');
+  const c = document.getElementById('errorList');
+  if (!errors.length) { c.innerHTML = '<div class="empty" style="padding:12px">No system errors</div>'; return; }
+  c.innerHTML = errors.slice(0,50).map(l => {
+    const msg = l.details ? (typeof l.details === 'object' ? (l.details.message || JSON.stringify(l.details).substring(0,100)) : String(l.details).substring(0,100)) : 'Unknown error';
+    return '<div class="activity-item"><div class="activity-dot" style="background:var(--red)"></div><span class="activity-time">'+(l.created_at?fmtTime(new Date(l.created_at)):'—')+'</span><span class="badge badge-red">ERROR</span><span class="activity-msg"><strong>'+esc(msg)+'</strong></span></div>';
+  }).join('');
+}
+
+// ─── SYSTEM HEALTH ────────────────────────────
+function renderHealth() {
+  const s = data.stats;
+  const hc = document.getElementById('healthMetrics');
+  hc.innerHTML = `
+    <div class="metric"><div class="metric-icon" style="background:rgba(34,197,94,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#22c55e">${fmt(s.total_organizations)}</span><span class="metric-label">Organizations</span><span class="metric-trend" style="color:var(--muted)">${fmt(s.active_api_keys)} active API keys</span></div></div>
+    <div class="metric"><div class="metric-icon" style="background:rgba(245,158,11,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#f59e0b">${fmt(s.total_locations)}</span><span class="metric-label">Locations</span><span class="metric-trend" style="color:var(--muted)">${fmt(s.total_assignments)} assignments</span></div></div>
+    <div class="metric"><div class="metric-icon" style="background:rgba(139,92,246,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#8b5cf6">${fmt(s.total_api_keys)}</span><span class="metric-label">API Keys</span><span class="metric-trend" style="color:var(--green)">${fmt(s.active_api_keys)} active</span></div></div>
+    <div class="metric"><div class="metric-icon" style="background:rgba(239,68,68,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#ef4444">$${fmtNum(s.total_outstanding)}</span><span class="metric-label">Outstanding</span><span class="metric-trend" style="color:var(--red)">${fmt(s.overdue_payments)} overdue</span></div></div>
+  `;
+
+  // Tiers
+  const tiers = document.getElementById('tierBreakdown');
+  const tierColors = {free:'var(--muted)',basic:'var(--accent)',premium:'var(--purple)',enterprise:'var(--amber)'};
+  const tierTotal = Object.values(s.tier_breakdown||{}).reduce((a,b)=>a+b,0);
+  tiers.innerHTML = Object.entries(s.tier_breakdown||{}).map(([tier, count]) => {
+    const pct = tierTotal ? ((count/tierTotal)*100).toFixed(0) : 0;
+    return `<div class="tier-bar-item"><div class="bar-count">${fmt(count)}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${tierColors[tier]||'var(--muted)'}"></div></div><div class="bar-label">${tier}</div></div>`;
+  }).join('');
+
+  // API keys
+  document.getElementById('apiKeyInfo').innerHTML = `<p style="font-size:12px;color:var(--muted)"><strong style="color:var(--text)">${fmt(s.total_api_keys)}</strong> total keys · <strong style="color:var(--green)">${fmt(s.active_api_keys)}</strong> active · <strong style="color:var(--red)">${fmt(s.total_api_keys - s.active_api_keys)}</strong> disabled</p>`;
+
+  // Payments
+  document.getElementById('paymentInfo').innerHTML = `<p style="font-size:12px;color:var(--muted)"><strong style="color:var(--text)">$${fmtNum(s.mrr)}</strong> MRR · <strong style="color:var(--red)">$${fmtNum(s.total_outstanding)}</strong> outstanding · <strong style="color:var(--amber)">${fmt(s.unpaid_payments)}</strong> unpaid · <strong style="color:var(--red)">${fmt(s.overdue_payments)}</strong> overdue</p>`;
+}
+
+// ─── RENDER DISPATCH ──────────────────────────
+function renderTab(tab) {
+  if (!data) return;
   switch(tab) {
-    case 'dashboard': loadDashboard(); break;
-    case 'keys': loadKeys(); break;
-    case 'org': loadOrg(); break;
+    case 'omni': renderOmni(); break;
+    case 'orgs': renderOrgs(); break;
+    case 'guards': renderGuards(); break;
+    case 'supervisors': renderSupervisors(); break;
+    case 'logs': renderLogs(); break;
+    case 'health': renderHealth(); break;
   }
 }
 
-// ============ DASHBOARD ============
-async function loadDashboard() {
-  const container = document.getElementById('tab-dashboard');
-  container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div class="shimmer" style="width:60%;height:80px;margin:0 auto"></div></div>';
-  try {
-    const r = await fetch(`${API}/dashboard`, { headers: { Authorization: `Bearer ${TOKEN}` } });
-    const d = await r.json();
-    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
-    document.getElementById('keyBadge').textContent = d.api_key_count || 0;
-
-    container.innerHTML = `
-      <div class="metrics">
-        <div class="metric"><div class="metric-icon" style="background:rgba(59,130,246,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="width:22px;height:22px"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#3b82f6">${d.api_key_count}</span><span class="metric-label">API Keys</span></div></div>
-        <div class="metric"><div class="metric-icon" style="background:rgba(34,197,94,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" style="width:22px;height:22px"><polyline points="20 6 9 17 4 12"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#22c55e">${d.active_keys}</span><span class="metric-label">Active Keys</span></div></div>
-        <div class="metric"><div class="metric-icon" style="background:rgba(245,158,11,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="width:22px;height:22px"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#f59e0b">${escapeHtml(d.org_name || '—')}</span><span class="metric-label">Organization</span></div></div>
-        <div class="metric"><div class="metric-icon" style="background:rgba(139,92,246,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" style="width:22px;height:22px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><div class="metric-body"><span class="metric-value" style="color:#8b5cf6">${d.subscription_tier || 'free'}</span><span class="metric-label">Subscription</span></div></div>
-      </div>
-      <div class="section"><div class="section-header"><span><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Quick Start</span></div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Use your API keys to authenticate requests to PatrolLink's API.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm switch-to-keys"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Create API Key</button>
-          <a href="/documentation" class="btn btn-ghost btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>Read Docs</a>
-        </div>
-      </div>`;
-  } catch(e) {
-    container.innerHTML = '<div class="empty"><p>Failed to load dashboard</p></div>';
-  }
-}
-
-function switchTab(tab) {
-  document.querySelectorAll('.nav-item').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab === tab);
+// ─── FILTERS ─────────────────────────────────
+function filterTable(tableId, query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('#' + tableId + ' tbody tr').forEach(row => {
+    row.style.display = q ? (row.textContent.toLowerCase().includes(q) ? '' : 'none') : '';
   });
-  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  activeTab = tab;
-  document.getElementById('tab-' + tab).classList.add('active');
-  document.getElementById('pageTitle').textContent = document.querySelector(`.nav-item[data-tab="${tab}"]`).textContent.trim();
-  loadTab(tab);
 }
 
-// ============ API KEYS ============
-async function loadKeys() {
-  const container = document.getElementById('keyList');
-  container.innerHTML = '<div class="shimmer" style="height:48px;margin-bottom:6px"></div><div class="shimmer" style="height:48px"></div>';
-  try {
-    const r = await fetch(`${API}/api-keys`, { headers: { Authorization: `Bearer ${TOKEN}` } });
-    const d = await r.json();
-    const keys = d.api_keys || [];
-    document.getElementById('keyBadge').textContent = keys.length;
-    if (!keys.length) {
-      container.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg><p>No API keys yet. Create one to get started.</p><button class="btn btn-primary btn-sm create-key-empty" style="margin-top:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Create Key</button></div>';
-      return;
+function filterLogs() {
+  const evt = document.getElementById('logEventFilter').value;
+  const q = document.getElementById('logSearch').value.toLowerCase();
+  const ipQ = document.getElementById('logIpFilter').value.toLowerCase();
+  const userQ = document.getElementById('logUserFilter').value.toLowerCase();
+  const dateFrom = document.getElementById('logDateFrom').value;
+  const dateTo = document.getElementById('logDateTo').value;
+  document.querySelectorAll('#logTable .log-row').forEach(row => {
+    const rowEvt = row.dataset.event;
+    const matchEvt = !evt || rowEvt === evt;
+    const matchQ = !q || row.textContent.toLowerCase().includes(q);
+    const rows = row.querySelectorAll('td');
+    const ipCell = rows[4] ? rows[4].textContent.toLowerCase() : '';
+    const userCell = rows[2] ? rows[2].textContent.toLowerCase() : '';
+    const timeCell = rows[0] ? rows[0].textContent.trim() : '';
+    const matchIp = !ipQ || ipCell.includes(ipQ);
+    const matchUser = !userQ || userCell.includes(userQ);
+    let matchDate = true;
+    if (dateFrom || dateTo) {
+      const rowDate = timeCell ? parseDateFromDisplay(timeCell) : null;
+      if (rowDate) {
+        if (dateFrom && rowDate < dateFrom) matchDate = false;
+        if (dateTo) {
+          const endDate = new Date(dateTo + 'T23:59:59');
+          if (rowDate > endDate) matchDate = false;
+        }
+      }
     }
-    container.innerHTML = keys.map(k => `
-      <div class="key-item">
-        <div class="key-left">
-          <div class="key-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
-          <div class="key-info">
-            <span class="key-name">${escapeHtml(k.name)}</span>
-            <span class="key-prefix">${escapeHtml(k.key_prefix)}··· · ${k.last_used_at ? 'Last used ' + fmtDate(k.last_used_at) : 'Never used'}</span>
-          </div>
-        </div>
-        <div class="key-right">
-          <span class="key-status ${k.enabled ? 'active' : 'disabled'}" title="${k.enabled ? 'Active' : 'Disabled'}"></span>
-          <button class="btn btn-ghost btn-sm toggle-key-btn" data-key-id="${k.id}" data-enabled="${!k.enabled}">${k.enabled ? 'Disable' : 'Enable'}</button>
-          <button class="btn btn-danger btn-sm revoke-key-btn" data-key-id="${k.id}" data-key-name="${escapeHtml(k.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Revoke</button>
-        </div>
-      </div>
-    `).join('');
-  } catch(e) {
-    container.innerHTML = '<div class="empty"><p>Failed to load API keys</p></div>';
-  }
-}
-
-function openCreateKey() {
-  document.getElementById('keyName').value = '';
-  document.getElementById('createKeyModal').classList.add('active');
-  setTimeout(() => document.getElementById('keyName').focus(), 100);
-}
-
-async function createApiKey() {
-  const name = document.getElementById('keyName').value.trim();
-  if (!name) { showToast('Please enter a key name', 'error'); return; }
-  const btn = document.getElementById('createKeyBtn');
-  btn.disabled = true; btn.textContent = 'Creating...';
-  try {
-    const r = await fetch(`${API}/api-keys`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
-      body: JSON.stringify({ name })
-    });
-    if (!r.ok) throw new Error('Failed to create key');
-    const d = await r.json();
-    closeModal('createKeyModal');
-    document.getElementById('revealedKey').textContent = d.raw_key;
-    document.getElementById('keyRevealModal').classList.add('active');
-    loadKeys();
-    loadDashboard();
-  } catch(e) { showToast(e.message, 'error'); }
-  btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Create';
-}
-
-let copiedKey = '';
-function copyKey() {
-  const key = document.getElementById('revealedKey').textContent;
-  navigator.clipboard.writeText(key).then(() => {
-    showToast('Copied to clipboard!', 'success');
-  }).catch(() => {
-    // Fallback
-    const ta = document.createElement('textarea');
-    ta.value = key; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    showToast('Copied to clipboard!', 'success');
+    row.style.display = (matchEvt && matchQ && matchIp && matchUser && matchDate) ? '' : 'none';
   });
 }
 
-async function toggleKey(id, enabled) {
+function parseDateFromDisplay(str) {
   try {
-    const r = await fetch(`${API}/api-keys/${id}/toggle`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
-      body: JSON.stringify({ enabled })
-    });
-    if (!r.ok) throw new Error('Failed to toggle key');
-    showToast(`Key ${enabled ? 'enabled' : 'disabled'}`, 'success');
-    loadKeys();
-  } catch(e) { showToast(e.message, 'error'); }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  } catch { return null; }
 }
 
-function openRevoke(id, name) {
-  pendingRevokeId = id;
-  document.getElementById('revokeKeyName').textContent = name;
-  document.getElementById('confirmRevokeModal').classList.add('active');
-}
-
-async function confirmRevoke() {
-  if (!pendingRevokeId) return;
-  const btn = document.getElementById('confirmRevokeBtn');
-  btn.disabled = true; btn.textContent = 'Revoking...';
-  try {
-    const r = await fetch(`${API}/api-keys/${pendingRevokeId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${TOKEN}` }
-    });
-    if (!r.ok) throw new Error('Failed to revoke');
-    showToast('API key revoked successfully', 'success');
-    closeModal('confirmRevokeModal');
-    pendingRevokeId = null;
-    loadKeys();
-    loadDashboard();
-  } catch(e) { showToast(e.message, 'error'); }
-  btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Revoke';
-}
-
-// ============ ORGANIZATION ============
-async function loadOrg() {
-  const container = document.getElementById('orgDetail');
-  try {
-    const r = await fetch(`${API}/dashboard`, { headers: { Authorization: `Bearer ${TOKEN}` } });
-    const d = await r.json();
-    container.innerHTML = `
-      <div class="org-detail-row"><span class="org-detail-label">Name</span><span class="org-detail-value">${escapeHtml(d.org_name || '—')}</span></div>
-      <div class="org-detail-row"><span class="org-detail-label">Invite Code</span><span class="org-detail-value" style="font-family:monospace">${escapeHtml(d.invite_code || '—')}</span></div>
-      <div class="org-detail-row"><span class="org-detail-label">Subscription</span><span class="org-detail-value"><span class="org-badge sub">${escapeHtml(d.subscription_tier || 'free')}</span> <span class="org-badge status">${escapeHtml(d.subscription_status || 'active')}</span></span></div>
-      <div class="org-detail-row"><span class="org-detail-label">Monthly Rate</span><span class="org-detail-value">$${fmt(d.monthly_rate)}</span></div>
-      <div class="org-detail-row"><span class="org-detail-label">Max Guards</span><span class="org-detail-value">${d.max_guards === 0 ? 'Unlimited' : d.max_guards}</span></div>
-    `;
-  } catch(e) {
-    container.innerHTML = '<div class="empty"><p>Failed to load organization info</p></div>';
-  }
-}
-
-// ============ UTILITIES ============
-function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-function fmt(n) { return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function fmtDate(d) { if(!d) return 'N/A'; return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
-function escapeHtml(s) { if(!s) return '—'; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// ─── UTILITIES ────────────────────────────────
+function fmt(n) { return Number(n||0).toLocaleString(); }
+function fmtNum(n) { return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtDate(d) { if(!d||isNaN(d))return '—'; return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function fmtTime(d) { if(!d||isNaN(d))return '—'; return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }
+function esc(s) { if(!s) return '—'; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function showToast(msg,type) {
   const c=document.getElementById('toastContainer');
-  const t=document.createElement('div'); t.className=`toast toast-${type}`;
-  t.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">${type==='success'?'<polyline points="20 6 9 17 4 12"/>':'<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'}</svg>${msg}`;
+  const t=document.createElement('div'); t.className='toast toast-'+type;
+  t.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0">'+(type==='success'?'<polyline points="20 6 9 17 4 12"/>':'<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>')+'</svg>'+msg;
   c.appendChild(t); requestAnimationFrame(()=>t.classList.add('show'));
   setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300)},3000);
 }
 
-// Close modals on overlay click
-document.querySelectorAll('.modal-overlay').forEach(el => {
-  el.addEventListener('click', e => { if(e.target === e.currentTarget) el.classList.remove('active'); });
-});
-
-// Static event listeners
-document.getElementById('logoutBtn').addEventListener('click', logout);
-document.getElementById('refreshBtn').addEventListener('click', refreshActiveTab);
-document.getElementById('createKeyBtn').addEventListener('click', openCreateKey);
-document.getElementById('createKeyCancelBtn').addEventListener('click', () => closeModal('createKeyModal'));
-document.getElementById('createKeyConfirmBtn').addEventListener('click', createApiKey);
-document.getElementById('copyKeyBtn').addEventListener('click', copyKey);
-document.getElementById('keyRevealDoneBtn').addEventListener('click', () => closeModal('keyRevealModal'));
-document.getElementById('revokeCancelBtn').addEventListener('click', () => closeModal('confirmRevokeModal'));
-document.getElementById('confirmRevokeBtn').addEventListener('click', confirmRevoke);
-
-// Event delegation for dashboard "Create API Key" buttons
-document.getElementById('tab-dashboard').addEventListener('click', e => {
-  const btn = e.target.closest('.switch-to-keys');
-  if (btn) switchTab('keys');
-});
-
-// Event delegation for key list buttons
-document.getElementById('keyList').addEventListener('click', e => {
-  const toggleBtn = e.target.closest('.toggle-key-btn');
-  if (toggleBtn) toggleKey(parseInt(toggleBtn.dataset.keyId), toggleBtn.dataset.enabled === 'true');
-
-  const revokeBtn = e.target.closest('.revoke-key-btn');
-  if (revokeBtn) openRevoke(parseInt(revokeBtn.dataset.keyId), revokeBtn.dataset.keyName);
-});
-
-// Event delegation for empty state "Create Key" button
-document.getElementById('keyList').addEventListener('click', e => {
-  const btn = e.target.closest('.create-key-empty');
-  if (btn) openCreateKey();
-});
-
-async function logout() {
+// ─── CRUD — Organizations ────────────────────
+async function createOrg() {
+  const name = document.getElementById('newOrgName').value.trim();
+  if (!name) { showToast('Organization name is required', 'error'); return; }
   try {
-    await fetch('/api/logout', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` } });
-  } catch(e) {}
-  window.location.href = '/';
+    const res = await fetch('/api/developer/organizations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
+      body: JSON.stringify({
+        name,
+        invite_code: document.getElementById('newOrgCode').value.trim() || undefined,
+        subscription_tier: document.getElementById('newOrgTier').value,
+        monthly_rate: parseFloat(document.getElementById('newOrgRate').value) || 0,
+        max_guards: parseInt(document.getElementById('newOrgMaxGuards').value) || 0,
+      }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed to create'); }
+    showToast('Organization created', 'success');
+    document.getElementById('createOrgForm').style.display = 'none';
+    document.getElementById('newOrgName').value = '';
+    document.getElementById('newOrgCode').value = '';
+    document.getElementById('newOrgRate').value = '';
+    document.getElementById('newOrgMaxGuards').value = '';
+    await fetchOmni();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+async function deleteOrg(id) {
+  if (!confirm('Delete this organization and all associated data?')) return;
+  try {
+    const res = await fetch('/api/developer/organizations/' + encodeURIComponent(id), {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + TOKEN },
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed to delete'); }
+    showToast('Organization deleted', 'success');
+    await fetchOmni();
+  } catch (err) { showToast(err.message, 'error'); }
 }
 
-// Init
-loadDashboard();
+// ─── CRUD — Users (Guards / Supervisors) ─────
+async function createUser(role) {
+  const prefix = role === 'guard' ? 'newGuard' : 'newSup';
+  const firstName = document.getElementById(prefix + 'FirstName').value.trim();
+  const lastName = document.getElementById(prefix + 'LastName').value.trim();
+  const phone = document.getElementById(prefix + 'Phone').value.trim();
+  const password = document.getElementById(prefix + 'Password').value;
+  const inviteCode = document.getElementById(prefix + 'Code').value.trim();
+  if (!firstName || !lastName || !phone || !password) {
+    showToast('First name, last name, phone, and password are required', 'error'); return;
+  }
+  try {
+    const res = await fetch('/api/developer/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
+      body: JSON.stringify({ first_name: firstName, last_name: lastName, phone, password, role, invite_code: inviteCode || undefined }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed to create'); }
+    showToast(role.charAt(0).toUpperCase() + role.slice(1) + ' created', 'success');
+    document.getElementById('createUser' + role.charAt(0).toUpperCase() + role.slice(1) + 'Form').style.display = 'none';
+    document.getElementById(prefix + 'FirstName').value = '';
+    document.getElementById(prefix + 'LastName').value = '';
+    document.getElementById(prefix + 'Phone').value = '';
+    document.getElementById(prefix + 'Password').value = '';
+    document.getElementById(prefix + 'Code').value = '';
+    await fetchOmni();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+async function deleteUser(id) {
+  if (!confirm('Delete this user and all associated records (patrols, logs, GPS points, assignments)?')) return;
+  try {
+    const res = await fetch('/api/developer/users/' + encodeURIComponent(id), {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + TOKEN },
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed to delete'); }
+    showToast('User deleted', 'success');
+    await fetchOmni();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ─── EVENT LISTENERS ─────────────────────────
+document.getElementById('refreshBtn').addEventListener('click', () => fetchOmni().catch(()=>{}));
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  try { await fetch('/api/logout',{method:'POST',headers:{Authorization:'Bearer '+TOKEN}}); } catch(e) {}
+  window.location.href = '/';
+});
+
+// ─── Static CRUD buttons ────────────────────
+document.getElementById('btnShowCreateOrg').addEventListener('click', () => {
+  document.getElementById('createOrgForm').style.display = 'block';
+});
+document.getElementById('btnCancelCreateOrg').addEventListener('click', () => {
+  document.getElementById('createOrgForm').style.display = 'none';
+});
+document.getElementById('btnCreateOrg').addEventListener('click', createOrg);
+
+document.getElementById('btnShowCreateGuard').addEventListener('click', () => {
+  document.getElementById('createUserGuardForm').style.display = 'block';
+});
+document.getElementById('btnCancelCreateGuard').addEventListener('click', () => {
+  document.getElementById('createUserGuardForm').style.display = 'none';
+});
+document.getElementById('btnCreateGuard').addEventListener('click', () => createUser('guard'));
+
+document.getElementById('btnShowCreateSup').addEventListener('click', () => {
+  document.getElementById('createUserSupervisorForm').style.display = 'block';
+});
+document.getElementById('btnCancelCreateSup').addEventListener('click', () => {
+  document.getElementById('createUserSupervisorForm').style.display = 'none';
+});
+document.getElementById('btnCreateSup').addEventListener('click', () => createUser('supervisor'));
+
+// ─── Search / filter inputs ─────────────────
+document.getElementById('orgSearch').addEventListener('input', function() {
+  filterTable('orgTable', this.value);
+});
+document.getElementById('guardSearch').addEventListener('input', function() {
+  filterTable('guardTable', this.value);
+});
+document.getElementById('supSearch').addEventListener('input', function() {
+  filterTable('supTable', this.value);
+});
+
+document.getElementById('logSearch').addEventListener('input', filterLogs);
+document.getElementById('logEventFilter').addEventListener('change', filterLogs);
+document.getElementById('logDateFrom').addEventListener('change', filterLogs);
+document.getElementById('logDateTo').addEventListener('change', filterLogs);
+document.getElementById('logIpFilter').addEventListener('input', filterLogs);
+document.getElementById('logUserFilter').addEventListener('input', filterLogs);
+
+// ─── Event delegation for delete buttons ────
+document.querySelector('#orgTable tbody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action="delete-org"]');
+  if (!btn) return;
+  const id = btn.closest('tr').dataset.id;
+  deleteOrg(id);
+});
+
+document.querySelector('#guardTable tbody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action="delete-user"]');
+  if (!btn) return;
+  const id = btn.closest('tr').dataset.id;
+  deleteUser(id);
+});
+
+document.querySelector('#supTable tbody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action="delete-user"]');
+  if (!btn) return;
+  const id = btn.closest('tr').dataset.id;
+  deleteUser(id);
+});
+
+// ─── INIT ────────────────────────────────────
+fetchOmni().catch(()=>{});
+
+// Auto-refresh every 30 seconds
+setInterval(() => { fetchOmni().catch(()=>{}); }, 30000);
 </script>
 </body>
 </html>
