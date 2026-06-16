@@ -166,19 +166,20 @@ app.use('/api', (req, res, next) => {
 const SESSION_SECRET = process.env.SESSION_SECRET || 'sqT_d_qxWqHyXS6Yk7Me8APygz3EjFE8';
 
 app.use(session({
+  name: 'patrollink.sid',
   store: new pgSession({
     pool: pool,
     tableName: 'session',
   }),
   secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  rolling: true, // Force the session cookie to be set on every response
-  proxy: true, // Trust the reverse proxy
+  resave: true,
+  saveUninitialized: true,
+  rolling: true,
+  proxy: true,
   cookie: {
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // TEMPORARY DEBUG: ruled out HTTPS/Proxy headers
     sameSite: 'lax',
   },
 }));
@@ -887,6 +888,7 @@ const isValidRedirect = (target) => {
  * Denies access to non-admin users
  */
 const requireAuth = (req, res, next) => {
+  console.log(`Auth check: Session ID ${req.sessionID}, User in session: ${!!req.session.user}`);
   if (req.session && req.session.user) {
     const allowedRoles = ['admin', 'supervisor', 'developer'];
     if (!allowedRoles.includes(req.session.user.role)) {
@@ -895,7 +897,7 @@ const requireAuth = (req, res, next) => {
     }
     next();
   } else {
-    console.log(`Unauthenticated access attempt to ${req.originalUrl}, redirecting to /login`);
+    console.log(`Unauthenticated access attempt to ${req.originalUrl}, Session ID: ${req.sessionID}, redirecting to /login`);
     const returnTo = req.originalUrl;
     if (isValidRedirect(returnTo)) {
       req.session.returnTo = returnTo;
@@ -1304,7 +1306,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     const returnTo = rawReturnTo && isValidRedirect(rawReturnTo) ? rawReturnTo : defaultRedirect;
     delete req.session.returnTo; // Clear it after use
 
-    console.log(`Login successful for user ${user.id}, role: ${user.role}. Redirecting to: ${returnTo}`);
+    console.log(`Login successful for user ${user.id}, role: ${user.role}. Session ID: ${req.sessionID}. Redirecting to: ${returnTo}`);
 
     // Explicitly save session before sending response to avoid race conditions in cluster mode
     req.session.save((err) => {
@@ -1313,6 +1315,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
         return res.status(500).json({ error: 'Internal Server Error', message: 'Failed to initialize session' });
       }
       
+      console.log(`Session saved for ${user.id}. Session ID is ${req.sessionID}`);
       res.json({
         message: 'Login successful',
         user: {
