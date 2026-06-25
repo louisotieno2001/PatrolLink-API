@@ -141,6 +141,16 @@ tr.clickable{cursor:pointer}
 .glow-amber{filter:drop-shadow(0 0 6px rgba(245,158,11,.3))}
 .glow-purple{filter:drop-shadow(0 0 6px rgba(139,92,246,.3))}
 
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100}
+.modal-overlay.active{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;width:460px;max-width:92vw}
+.modal h2{font-size:16px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.modal-field{margin-bottom:12px}
+.modal-field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px}
+.modal-field select,.modal-field input{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:12px;outline:none}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
@@ -384,6 +394,19 @@ tr.clickable{cursor:pointer}
 </div>
 <% } %>
 
+<div class="modal-overlay" id="resetPasswordModal">
+  <div class="modal" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;width:420px;max-width:92vw;margin:0 auto">
+    <h2 style="font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" style="width:18px;height:18px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Reset Password</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px" id="resetPasswordUserName"></p>
+    <div class="modal-field" style="margin-bottom:12px"><label style="display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px">New Password</label><div style="position:relative"><input type="password" id="resetPasswordInput" placeholder="Enter new password" style="width:100%;padding:8px 36px 8px 10px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,.2);color:var(--text);font-size:12px;outline:none"><button type="button" id="toggleResetPassword" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;display:flex" tabindex="-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div style="font-size:10px;color:var(--muted);margin-top:2px;margin-bottom:12px">Min 8 chars, uppercase, lowercase, digit, special character</div>
+    <div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" id="closeResetPasswordBtn">Cancel</button>
+      <button class="btn btn-success" id="confirmResetPasswordBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
@@ -456,8 +479,8 @@ function renderOmni() {
         <div class="ring-label">Web Events</div>
       </div>
       <div class="omni-ring-item">
-        <div class="ring" style="border:3px solid rgba(236,72,153,.3);background:rgba(236,72,153,.06)">
-          <span class="ring-value" style="color:var(--pink)">$${fmtNum(s.mrr)}</span>
+        <div class="ring" style="border:3px solid rgba(236,72,153,.3);background:rgba(236,72,153,.06);border-radius:10px;min-width:150px;padding:0 18px;height:64px">
+          <span class="ring-value" style="color:var(--pink);font-size:18px">${fmtNum(s.mrr)}/=</span>
         </div>
         <div class="ring-label">MRR</div>
       </div>
@@ -530,7 +553,7 @@ function renderGuards() {
   if (!guards.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No guards</td></tr>'; return; }
   tbody.innerHTML = guards.map(g => {
     const susp = g.suspended ? '<span class="badge badge-red">Suspended</span>' : '<span class="badge badge-green">Active</span>';
-    return `<tr data-id="${esc(g.id)}"><td><strong>${esc(g.first_name||'')} ${esc(g.last_name||'')}</strong></td><td>${esc(g.phone||'—')}</td><td>${esc(g.email||'—')}</td><td>${esc(g.organization)}</td><td><span class="badge ${g.status==='active'?'badge-green':'badge-amber'}">${esc(g.status)}</span></td><td>${susp}</td><td><span class="sub-text">${g.last_access ? fmtDate(new Date(g.last_access)) : 'Never'}</span></td><td><button class="btn btn-danger btn-sm" data-action="delete-user">Delete</button></td></tr>`;
+    return `<tr data-id="${esc(g.id)}"><td><strong>${esc(g.first_name||'')} ${esc(g.last_name||'')}</strong></td><td>${esc(g.phone||'—')}</td><td>${esc(g.email||'—')}</td><td>${esc(g.organization)}</td><td><span class="badge ${g.status==='active'?'badge-green':'badge-amber'}">${esc(g.status)}</span></td><td>${susp}</td><td><span class="sub-text">${g.last_access ? fmtDate(new Date(g.last_access)) : 'Never'}</span></td><td style="display:flex;gap:4px"><button class="btn btn-amber btn-sm" data-action="reset-password" title="Reset Password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button><button class="btn btn-danger btn-sm" data-action="delete-user">Delete</button></td></tr>`;
   }).join('');
 }
 
@@ -544,7 +567,7 @@ function renderSupervisors() {
     const isAdmin = (data.admins||[]).find(a => a.id === s.id);
     const role = isAdmin ? 'Admin' : 'Supervisor';
     const susp = s.suspended ? '<span class="badge badge-red">Suspended</span>' : '<span class="badge badge-green">Active</span>';
-    return `<tr data-id="${esc(s.id)}"><td><strong>${esc(s.first_name||'')} ${esc(s.last_name||'')}</strong></td><td><span class="badge badge-${role==='Admin'?'pink':'purple'}">${role}</span></td><td>${esc(s.phone||'—')}</td><td>${esc(s.email||'—')}</td><td>${esc(s.organization||'—')}</td><td><span class="badge ${s.status==='active'?'badge-green':'badge-amber'}">${esc(s.status)}</span></td><td>${susp}</td><td><span class="sub-text">${s.last_access ? fmtDate(new Date(s.last_access)) : 'Never'}</span></td><td><button class="btn btn-danger btn-sm" data-action="delete-user">Delete</button></td></tr>`;
+    return `<tr data-id="${esc(s.id)}"><td><strong>${esc(s.first_name||'')} ${esc(s.last_name||'')}</strong></td><td><span class="badge badge-${role==='Admin'?'pink':'purple'}">${role}</span></td><td>${esc(s.phone||'—')}</td><td>${esc(s.email||'—')}</td><td>${esc(s.organization||'—')}</td><td><span class="badge ${s.status==='active'?'badge-green':'badge-amber'}">${esc(s.status)}</span></td><td>${susp}</td><td><span class="sub-text">${s.last_access ? fmtDate(new Date(s.last_access)) : 'Never'}</span></td><td style="display:flex;gap:4px"><button class="btn btn-amber btn-sm" data-action="reset-password" title="Reset Password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button><button class="btn btn-danger btn-sm" data-action="delete-user">Delete</button></td></tr>`;
   }).join('');
 }
 
@@ -829,6 +852,75 @@ document.querySelector('#supTable tbody').addEventListener('click', e => {
   if (!btn) return;
   const id = btn.closest('tr').dataset.id;
   deleteUser(id);
+});
+
+// ─── Reset Password ──────────────────────────
+let resetPasswordUserId = null;
+
+function openResetPassword(id, name) {
+  resetPasswordUserId = id;
+  document.getElementById('resetPasswordUserName').textContent = `Set new password for ${name}`;
+  document.getElementById('resetPasswordInput').value = '';
+  document.getElementById('resetPasswordModal').classList.add('active');
+  document.getElementById('resetPasswordInput').focus();
+}
+
+document.querySelector('#guardTable tbody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action="reset-password"]');
+  if (!btn) return;
+  const tr = btn.closest('tr');
+  const id = tr.dataset.id;
+  const name = tr.querySelector('td:first-child')?.textContent?.trim() || 'User';
+  openResetPassword(id, name);
+});
+
+document.querySelector('#supTable tbody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action="reset-password"]');
+  if (!btn) return;
+  const tr = btn.closest('tr');
+  const id = tr.dataset.id;
+  const name = tr.querySelector('td:first-child')?.textContent?.trim() || 'User';
+  openResetPassword(id, name);
+});
+
+document.getElementById('closeResetPasswordBtn').addEventListener('click', () => {
+  document.getElementById('resetPasswordModal').classList.remove('active');
+  resetPasswordUserId = null;
+});
+document.getElementById('resetPasswordModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('resetPasswordModal').classList.remove('active');
+    resetPasswordUserId = null;
+  }
+});
+
+document.getElementById('toggleResetPassword').addEventListener('click', () => {
+  const input = document.getElementById('resetPasswordInput');
+  const isPassword = input.type === 'password';
+  input.type = isPassword ? 'text' : 'password';
+  document.getElementById('toggleResetPassword').innerHTML = isPassword
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+});
+
+document.getElementById('confirmResetPasswordBtn').addEventListener('click', async () => {
+  if (!resetPasswordUserId) return;
+  const password = document.getElementById('resetPasswordInput').value;
+  if (!password) { showToast('Please enter a new password', 'error'); return; }
+  const btn = document.getElementById('confirmResetPasswordBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    const r = await fetch(`/api/developer/users/${resetPasswordUserId}/password`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ password }),
+    });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.message || 'Failed to reset password'); }
+    showToast('Password reset successfully', 'success');
+    document.getElementById('resetPasswordModal').classList.remove('active');
+    resetPasswordUserId = null;
+  } catch (e) { showToast(e.message, 'error'); }
+  btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Save';
 });
 
 // ─── INIT ────────────────────────────────────

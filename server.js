@@ -2024,6 +2024,63 @@ app.patch('/api/admin/users/:id/activate', verifyTokenMiddleware, requireRole('a
 });
 
 /**
+ * PATCH /api/admin/users/:id/password
+ * Set a new password for a user in the admin's organization
+ * Body: { password }
+ */
+app.patch('/api/admin/users/:id/password', verifyTokenMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const inviteCode = req.user.invite_code;
+    const { id } = req.params;
+    const { password } = req.body || {};
+
+    if (!inviteCode) {
+      return res.status(400).json({ error: 'Bad Request', message: 'No organization invite code found' });
+    }
+
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Validation Error', message: 'New password is required' });
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",.\/<>?~])[A-Za-z\d!@#$%^&*()_+\-=\[\]{}|;':",.\/<>?~]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one digit, and one special character',
+      });
+    }
+
+    const userResponse = await query(
+      `/items/users?filter[id][_eq]=${encodeURIComponent(id)}&filter[invite_code][_eq]=${encodeURIComponent(inviteCode)}&limit=1`
+    );
+    const user = (userResponse.data.data || [])[0];
+    if (!user) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found in your organization' });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    await query(`/items/users/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      data: { password: hashedPassword },
+    });
+
+    logWebActivity({
+      eventType: 'web_action',
+      userId: req.user.id,
+      userName: `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim(),
+      userRole: req.user.role,
+      details: { action: 'change_password', target_user_id: id, target_role: user.role },
+    });
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to change password' });
+  }
+});
+
+/**
  * DELETE /api/admin/users/:id
  * Delete a supervisor/admin user and cascade related data
  */
@@ -2840,6 +2897,55 @@ app.delete('/api/developer/users/:id', verifyTokenMiddleware, requireCertifiedDe
   } catch (err) {
     console.error('Delete user error:', err);
     res.status(500).json({ error: 'Failed to delete user', message: err.message });
+  }
+});
+
+/**
+ * PATCH /api/developer/users/:id/password
+ * Reset password for any user (guard, supervisor, or admin)
+ */
+app.patch('/api/developer/users/:id/password', verifyTokenMiddleware, requireCertifiedDev, requireRole('developer', 'super-admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body || {};
+
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Validation Error', message: 'New password is required' });
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",.\/<>?~])[A-Za-z\d!@#$%^&*()_+\-=\[\]{}|;':",.\/<>?~]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one digit, and one special character',
+      });
+    }
+
+    const userResponse = await query(`/items/users?filter[id][_eq]=${encodeURIComponent(id)}&limit=1`);
+    const user = (userResponse.data.data || [])[0];
+    if (!user) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    await query(`/items/users/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      data: { password: hashedPassword },
+    });
+
+    logWebActivity({
+      eventType: 'web_action',
+      userId: req.user.id,
+      userName: `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim(),
+      userRole: req.user.role,
+      details: { action: 'reset_password', target_user_id: id, target_role: user.role },
+    });
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to reset password' });
   }
 });
 
