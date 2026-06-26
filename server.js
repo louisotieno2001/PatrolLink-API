@@ -54,6 +54,7 @@ const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
 // Directus API configuration
 const url = process.env.DIRECTUS_URL;
 const accessToken = process.env.DIRECTUS_TOKEN;
+const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY || '';
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -3401,6 +3402,173 @@ app.delete('/api/admin/guards/:id', verifyTokenMiddleware, requireRole('admin', 
       message: 'Failed to remove guard',
       details: error.response?.data || error.message,
     });
+  }
+});
+
+/**
+ * GET /api/admin/guard-report/:guardId
+ * Renders a print-optimized PDF report for a guard
+ */
+app.get('/api/admin/guard-report/:guardId', requireAuth, async (req, res) => {
+  try {
+    const inviteCode = req.session.user.invite_code;
+    const guardId = req.params.guardId;
+
+    if (!inviteCode) {
+      return res.status(400).send('No organization invite code found');
+    }
+
+    // Fetch guard user
+    const userRes = await query(`/items/users/${encodeURIComponent(guardId)}`);
+    const user = userRes.data.data;
+    if (!user || user.role !== 'guard' || user.invite_code !== inviteCode) {
+      return res.status(404).send('Guard not found');
+    }
+
+    // Fetch org name
+    let orgName = 'Security Organization';
+    try {
+      const orgRes = await query(`/items/organizations?filter[invite_code][_eq]=${inviteCode}`);
+      const org = orgRes.data.data?.[0];
+      if (org) orgName = org.name || orgName;
+    } catch (e) { /* ignore */ }
+
+    // Fetch assignment
+    let locationName = 'Not assigned';
+    let assignedAreas = '';
+    let operatingHours = 'N/A';
+    try {
+      const assignRes = await pool.query(
+        'SELECT * FROM assignments WHERE user_id = $1 ORDER BY date_updated DESC LIMIT 1',
+        [guardId]
+      );
+      const assignment = assignRes.rows[0];
+      if (assignment) {
+        assignedAreas = assignment.assigned_areas || '';
+        operatingHours = `${assignment.start_time || '?'} - ${assignment.end_time || '?'}`;
+        if (assignment.location) {
+          const locRes = await query(`/items/locations/${encodeURIComponent(assignment.location)}`);
+          const loc = locRes.data.data;
+          if (loc) locationName = loc.name || assignment.location;
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // Fetch patrols
+    const patrolsRes = await query(
+      `/items/patrols?filter[user_id][_eq]=${encodeURIComponent(guardId)}&sort=-start_time&limit=500`
+    );
+    const rawPatrols = patrolsRes.data.data || [];
+
+    // Fetch logs
+    const logsRes = await query(
+      `/items/logs?filter[user_id][_eq]=${encodeURIComponent(guardId)}&sort=-timestamp&limit=500`
+    );
+    const rawLogs = logsRes.data.data || [];
+
+    // Build patrol data
+    const patrols = rawPatrols.map(p => {
+      const durationSec = parseInt(p.duration) || 0;
+      const hrs = Math.floor(durationSec / 3600);
+      const mins = Math.floor((durationSec % 3600) / 60);
+      const secs = durationSec % 60;
+      let durStr = 'N/A';
+      if (hrs > 0) durStr = `${hrs}h ${mins}m ${secs}s`;
+      else if (mins > 0) durStr = `${mins}m ${secs}s`;
+      else durStr = `${secs}s`;
+
+      let status = 'missed';
+      if (p.status === 'completed' || p.status === 'inactive_patrol_not_started') status = 'completed';
+      else if (p.status === 'active' || p.status === 'active_on_patrol' || p.status === 'logged_out_on_patrol') status = 'in-progress';
+
+      let coords = [];
+      try {
+        if (p.map) {
+          const parsed = typeof p.map === 'string' ? JSON.parse(p.map) : p.map;
+          if (Array.isArray(parsed)) {
+            coords = parsed.map(c => ({
+              latitude: Number(c.latitude ?? c.lat),
+              longitude: Number(c.longitude ?? c.lng ?? c.lon)
+            })).filter(c => Number.isFinite(c.latitude) && Number.isFinite(c.longitude));
+          }
+        }
+      } catch (e) { /* ignore */ }
+
+      return {
+        startTime: p.start_time || '',
+        endTime: p.end_time || null,
+        durationSeconds: durationSec,
+        durationFormatted: durStr,
+        status,
+        checkpoints: [],
+        routeCoordinates: coords,
+      };
+    });
+
+    // Build log data
+    const logs = rawLogs.map(l => ({
+      timestamp: l.timestamp || '',
+      title: l.title || 'Untitled',
+      description: l.description || '',
+      category: l.category || 'other',
+      priority: l.priority || 'low',
+      status: l.status || 'active',
+    }));
+
+    // Build static map URL from all coordinates
+    let mapUrl = null;
+    const allCoords = patrols.filter(p => p.routeCoordinates.length > 1).flatMap(p => p.routeCoordinates);
+    if (allCoords.length > 1 && googleMapsApiKey) {
+      // Downsample to 80 points
+      let sampled = allCoords;
+      if (sampled.length > 80) {
+        sampled = [sampled[0]];
+        const step = (allCoords.length - 1) / 79;
+        for (let i = 1; i < 79; i++) {
+          sampled.push(allCoords[Math.round(i * step)]);
+        }
+        sampled.push(allCoords[allCoords.length - 1]);
+      }
+      const pathPoints = sampled.map(c => `${c.latitude},${c.longitude}`).join('%7C');
+      const start = sampled[0];
+      const end = sampled[sampled.length - 1];
+      const markers = `color:green%7Clabel:S%7C${start.latitude},${start.longitude}&markers=color:red%7Clabel:E%7C${end.latitude},${end.longitude}`;
+      const url = `https://maps.googleapis.com/maps/api/staticmap?size=1100x450&scale=2&maptype=roadmap&path=color:0x2563eb%7Cweight:4%7C${pathPoints}&markers=${markers}&key=${googleMapsApiKey}`;
+      if (url.length < 8000) mapUrl = url;
+    }
+
+    const guard = {
+      name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown',
+      phone: user.phone || '',
+      location: locationName,
+      operatingHours,
+      assignedAreas,
+      joinDate: user.date_created ? new Date(user.date_created).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A',
+    };
+
+    res.render('guard_report', { guard, orgName, patrols, logs, mapUrl, formatDate, formatDuration });
+  } catch (error) {
+    console.error('Error generating guard report:', error);
+    res.status(500).send('Failed to generate report');
+  }
+
+  function formatDate(dateStr) {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) { return dateStr; }
+  }
+
+  function formatDuration(totalSeconds) {
+    const s = Number(totalSeconds);
+    if (!Number.isFinite(s) || s < 0) return 'N/A';
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = Math.floor(s % 60);
+    if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
+    if (mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
   }
 });
 

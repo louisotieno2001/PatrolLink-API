@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patrol Report - <%= guard.name %></title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+  background:#fff;color:#1e293b;padding:0;margin:0;line-height:1.5;
+}
+.report{max-width:1100px;margin:0 auto;padding:0}
+.header{
+  background:linear-gradient(135deg,#1e293b,#0f172a);
+  padding:36px 48px;border-bottom:3px solid #2563eb;color:#fff;
+}
+.header h1{font-size:26px;font-weight:800;margin-bottom:2px}
+.header .org{font-size:14px;color:#94a3b8}
+.header .meta{margin-top:12px;display:flex;gap:32px;font-size:12px;color:#64748b}
+.header .meta span{color:#94a3b8}
+.body{padding:32px 48px}
+.section{
+  background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+  padding:24px;margin-bottom:24px;page-break-inside:avoid;
+}
+.section h2{
+  font-size:16px;font-weight:700;margin-bottom:14px;
+  padding-bottom:8px;border-bottom:2px solid #2563eb;color:#0f172a;
+}
+.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.info-item{display:flex;flex-direction:column;gap:1px}
+.info-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;font-weight:600}
+.info-value{font-size:13px;color:#1e293b}
+.stats-grid{display:flex;flex-wrap:wrap;gap:12px}
+.stat-card{
+  flex:1;min-width:110px;background:#fff;border-radius:8px;
+  padding:14px;text-align:center;border:1px solid #e2e8f0;
+}
+.stat-card .num{font-size:24px;font-weight:800;color:#2563eb}
+.stat-card .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-top:3px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{
+  text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase;
+  letter-spacing:.4px;color:#64748b;font-weight:600;
+  background:#f1f5f9;border-bottom:2px solid #e2e8f0;
+}
+td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:top}
+tr:nth-child(even) td{background:#fafbfc}
+.badge{
+  display:inline-block;padding:2px 7px;border-radius:4px;
+  font-size:10px;font-weight:600;
+}
+.map-wrap{text-align:center;margin:16px 0}
+.map-wrap img{max-width:100%;border-radius:8px;border:1px solid #e2e8f0}
+.map-legend{display:flex;gap:20px;justify-content:center;font-size:11px;color:#64748b;margin-top:8px}
+.map-legend span{display:flex;align-items:center;gap:4px}
+.footer{text-align:center;padding:20px 48px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0}
+@media print{
+  body{background:#fff}
+  .header{background:#1e293b !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .stat-card{break-inside:avoid}
+  .section{break-inside:avoid}
+  th{background:#f1f5f9 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="report">
+  <div class="header">
+    <h1>Patrol Report</h1>
+    <div class="org"><%= orgName %></div>
+    <div class="meta">
+      <div>Guard: <span><%= guard.name %></span></div>
+      <div>Generated: <span><%= new Date().toLocaleString('en-US',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) %></span></div>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- Guard Info -->
+    <div class="section">
+      <h2>Guard Information</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Name</span>
+          <span class="info-value"><%= guard.name %></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Phone</span>
+          <span class="info-value"><%= guard.phone || 'N/A' %></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Location</span>
+          <span class="info-value"><%= guard.location %></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Operating Hours</span>
+          <span class="info-value"><%= guard.operatingHours %></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Assigned Areas</span>
+          <span class="info-value"><%= guard.assignedAreas %></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Joined</span>
+          <span class="info-value"><%= guard.joinDate %></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="section">
+      <h2>Summary</h2>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="num"><%= patrols.length %></div><div class="lbl">Total Patrols</div></div>
+        <div class="stat-card"><div class="num"><%= patrols.filter(p => p.status === 'completed').length %></div><div class="lbl">Completed</div></div>
+        <div class="stat-card"><div class="num"><%= formatDuration(patrols.reduce((s,p) => s + p.durationSeconds, 0)) %></div><div class="lbl">Total Time</div></div>
+        <div class="stat-card"><div class="num"><%= logs.length %></div><div class="lbl">Total Logs</div></div>
+        <div class="stat-card"><div class="num" style="color:<%= logs.filter(l=>l.priority==='high').length > 0 ? '#ef4444' : '#22c55e' %>"><%= logs.filter(l=>l.priority==='high').length %></div><div class="lbl">High Priority</div></div>
+      </div>
+    </div>
+
+    <!-- Patrols -->
+    <div class="section">
+      <h2>Patrol History</h2>
+      <% if (patrols.length === 0) { %>
+        <p style="color:#94a3b8;text-align:center;padding:20px;">No patrol records found.</p>
+      <% } else { %>
+        <p style="color:#64748b;font-size:12px;margin-bottom:10px;"><%= patrols.length %> patrol(s) recorded</p>
+        <table>
+          <thead><tr><th>#</th><th>Start</th><th>End</th><th>Duration</th><th>Status</th><th>Checkpoints</th></tr></thead>
+          <tbody>
+            <% patrols.forEach((p, i) => { %>
+            <tr>
+              <td><%= i + 1 %></td>
+              <td><%= formatDate(p.startTime) %></td>
+              <td><%= p.endTime ? formatDate(p.endTime) : 'In Progress' %></td>
+              <td><%= p.durationFormatted %></td>
+              <td><span class="badge" style="background:<%= p.status === 'completed' ? '#dcfce7' : p.status === 'in-progress' ? '#dbeafe' : '#fee2e2' %>;color:<%= p.status === 'completed' ? '#16a34a' : p.status === 'in-progress' ? '#2563eb' : '#dc2626' %>"><%= p.status %></span></td>
+              <td style="font-size:11px"><%= p.checkpoints.join(', ') || '—' %></td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+
+    <!-- Map -->
+    <div class="section">
+      <h2>Patrol Route Map</h2>
+      <% if (mapUrl) { %>
+        <div class="map-wrap"><img src="<%= mapUrl %>" alt="Patrol route map"/></div>
+        <div class="map-legend">
+          <span><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:50%"></span> Start</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:50%"></span> End</span>
+          <span><span style="display:inline-block;width:20px;height:3px;background:#2563eb;border-radius:2px"></span> Patrol Route</span>
+        </div>
+      <% } else { %>
+        <p style="color:#94a3b8;text-align:center;padding:20px;">No route coordinates available for any patrol.</p>
+      <% } %>
+    </div>
+
+    <!-- Logs -->
+    <div class="section">
+      <h2>Log Entries</h2>
+      <% if (logs.length === 0) { %>
+        <p style="color:#94a3b8;text-align:center;padding:20px;">No log entries found.</p>
+      <% } else { %>
+        <p style="color:#64748b;font-size:12px;margin-bottom:10px;"><%= logs.length %> log(s) recorded</p>
+        <table>
+          <thead><tr><th>#</th><th>Timestamp</th><th>Category</th><th>Title</th><th>Description</th><th>Priority</th><th>Status</th></tr></thead>
+          <tbody>
+            <% logs.forEach((l, i) => { %>
+            <tr>
+              <td><%= i + 1 %></td>
+              <td style="white-space:nowrap"><%= formatDate(l.timestamp) %></td>
+              <td><span class="badge" style="background:<%= l.category === 'incident' ? '#fee2e2' : l.category === 'unusual' ? '#fef3c7' : l.category === 'maintenance' ? '#f3e8ff' : '#dbeafe' %>;color:<%= l.category === 'incident' ? '#dc2626' : l.category === 'unusual' ? '#d97706' : l.category === 'maintenance' ? '#9333ea' : '#2563eb' %>"><%= l.category %></span></td>
+              <td style="max-width:200px"><%= l.title %></td>
+              <td style="max-width:250px;font-size:11px;color:#64748b"><%= l.description ? l.description.substring(0, 120) : '' %></td>
+              <td><span class="badge" style="background:<%= l.priority === 'high' ? '#fee2e2' : l.priority === 'medium' ? '#fef3c7' : '#dcfce7' %>;color:<%= l.priority === 'high' ? '#dc2626' : l.priority === 'medium' ? '#d97706' : '#16a34a' %>"><%= l.priority %></span></td>
+              <td><%= l.status %></td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="footer">
+    PatrolLink &mdash; Generated on <%= new Date().toLocaleString('en-US',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) %> &mdash; Confidential
+  </div>
+</div>
+
+<script>
+function printReport() {
+  var img = document.querySelector('.map-wrap img');
+  if (img && !img.complete) {
+    img.addEventListener('load', function() { setTimeout(window.print, 500); });
+    img.addEventListener('error', function() { setTimeout(window.print, 500); });
+  } else {
+    setTimeout(window.print, 500);
+  }
+}
+if (document.readyState === 'complete') {
+  setTimeout(printReport, 500);
+} else {
+  window.addEventListener('load', function() { setTimeout(printReport, 500); });
+}
+</script>
+</body>
+</html>

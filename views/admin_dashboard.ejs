@@ -295,7 +295,7 @@ th,td{padding:6px 8px;font-size:11px}
             <label>Suspended</label>
             <select id="guardSuspendedFilter"><option value="">All</option><option value="true">Yes</option><option value="false">No</option></select>
           </div>
-          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Location</th><th>Areas</th><th>Hours</th><th>Status</th><th>Suspended</th><th>Last Access</th></tr></thead><tbody id="guardTableBody"><tr><td colspan="8" class="empty">Select an organization above</td></tr></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Location</th><th>Areas</th><th>Hours</th><th>Status</th><th>Suspended</th><th>Last Access</th><th style="width:60px">Report</th></tr></thead><tbody id="guardTableBody"><tr><td colspan="9" class="empty">Select an organization above</td></tr></tbody></table></div>
         </div>
       </div>
 
@@ -590,8 +590,8 @@ function renderGuards() {
   });
   document.getElementById('guardCount').textContent = `${filtered.length} of ${guardData.length}`;
   document.getElementById('guardBadge').textContent = guardData.length;
-  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No guards match filters</td></tr>'; return; }
-  tbody.innerHTML = filtered.map(g => `<tr class="clickable-row" data-user-id="${g.id}" data-user-name="${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}" data-user-status="${g.patrol_status||'Inactive'}" data-user-suspended="${isSuspended(g.suspended)}">
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">No guards match filters</td></tr>'; return; }
+  tbody.innerHTML = filtered.map(g => `<tr data-user-id="${g.id}" data-user-name="${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}" data-user-status="${g.patrol_status||'Inactive'}" data-user-suspended="${isSuspended(g.suspended)}">
     <td><strong>${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}</strong></td>
     <td>${g.phone||'—'}</td>
     <td>${escapeHtml(g.location||'—')}</td>
@@ -600,19 +600,20 @@ function renderGuards() {
     <td><span class="badge-tag ${g.patrol_status==='On Patrol'?'badge-onpatrol':'badge-inactive'}">${g.patrol_status||'Inactive'}</span></td>
     <td style="font-size:12px">${isSuspended(g.suspended) ? '<span style="color:var(--red)">Yes</span>' : '<span style="color:var(--green)">No</span>'}</td>
     <td style="font-size:11px;color:var(--muted)">${g.last_access?new Date(g.last_access).toLocaleString():'—'}</td>
+    <td><a href="/api/admin/guard-report/${g.id}" target="_blank" class="btn btn-sm btn-ghost" title="Generate PDF report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></a></td>
   </tr>`).join('');
 }
 
 async function loadGuards() {
   const tbody = document.getElementById('guardTableBody');
-  if (!selectedOrgId) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Select an organization above</td></tr>'; guardData = []; renderGuards(); return; }
-  tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading...</td></tr>';
+  if (!selectedOrgId) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Select an organization above</td></tr>'; guardData = []; renderGuards(); return; }
+  tbody.innerHTML = '<tr><td colspan="9" class="empty">Loading...</td></tr>';
   try {
     const r = await fetch(`${API}/guards${orgQuery()}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
     const d = await r.json();
     guardData = d.guards || [];
     renderGuards();
-  } catch(e) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Failed to load</td></tr>'; }
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Failed to load</td></tr>'; }
 }
 
 function renderPayments() {
@@ -738,7 +739,8 @@ document.getElementById('supervisorTableBody').addEventListener('click', e => {
 });
 
 document.getElementById('guardTableBody').addEventListener('click', e => {
-  const row = e.target.closest('tr.clickable-row');
+  if (e.target.closest('a')) return;
+  const row = e.target.closest('tr[data-user-id]');
   if (row) openUserManage(row.dataset.userId, row.dataset.userName, row.dataset.userSuspended);
 });
 
